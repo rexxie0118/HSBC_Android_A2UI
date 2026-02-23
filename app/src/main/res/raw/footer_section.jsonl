@@ -1,0 +1,4 @@
+{"type":"section","id":"footer_section","name":"Footer Section","page":"homepage","order":9,"visible":true,"theme":{"backgroundColor":"transparent","padding":{"all":"${spacing.lg}"},"borderRadius":"${borderRadius.none}"},"components":["footer_content"]}
+{"type":"component","id":"footer_content","type":"Column","parent":"footer_section","properties":{"distribution":"center","alignment":"centerX","children":["footer_text1","footer_text2"]}}
+{"type":"component","id":"footer_text1","type":"Text","parent":"footer_section","properties":{"text":{"literalString":"存款保障计划成员"},"usageHint":"caption","color":"${colors.textTertiary}"}}
+{"type":"component","id":"footer_text2","type":"Text","parent":"footer_section","properties":{"text":{"literalString":"DEPOSIT PROTECTION SCHEME MEMBER"},"usageHint":"caption","color":"${colors.textTertiary}"}}

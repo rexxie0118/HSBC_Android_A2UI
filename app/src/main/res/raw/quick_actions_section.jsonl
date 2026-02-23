@@ -1,0 +1,14 @@
+{"type":"section","id":"quick_actions_section","name":"Quick Actions","page":"homepage","order":2,"visible":true,"theme":{"backgroundColor":"#FFFFFF","padding":{"all":"16"},"borderRadius":"16","border":{"width":1,"color":"#BDBDBD"},"margin":{"top":"20","start":"12","end":"12"}},"components":["qa_row"]}
+{"type":"component","id":"qa_row","type":"Row","parent":"quick_actions_section","properties":{"distribution":"spaceEvenly","alignment":"centerY","children":["qa1","qa2","qa3","qa4"]}}
+{"type":"component","id":"qa1","type":"Column","parent":"qa_row","properties":{"distribution":"center","alignment":"centerX","children":["qa1_icon","qa1_text"],"padding":{"all":"8"}}}
+{"type":"component","id":"qa1_icon","type":"Icon","parent":"qa_row","properties":{"icon":"transfer","usageHint":"action","tintColor":"#D32F2F"}}
+{"type":"component","id":"qa1_text","type":"Text","parent":"qa_row","properties":{"text":{"literalString":"转账至本地"},"usageHint":"caption","color":"#757575","padding":{"top":"4"}}}
+{"type":"component","id":"qa2","type":"Column","parent":"qa_row","properties":{"distribution":"center","alignment":"centerX","children":["qa2_icon","qa2_text"],"padding":{"all":"8"}}}
+{"type":"component","id":"qa2_icon","type":"Icon","parent":"qa_row","properties":{"icon":"cards","usageHint":"action","tintColor":"#D32F2F"}}
+{"type":"component","id":"qa2_text","type":"Text","parent":"qa_row","properties":{"text":{"literalString":"转账至汇丰"},"usageHint":"caption","color":"#757575","padding":{"top":"4"}}}
+{"type":"component","id":"qa3","type":"Column","parent":"qa_row","properties":{"distribution":"center","alignment":"centerX","children":["qa3_icon","qa3_text"],"padding":{"all":"8"}}}
+{"type":"component","id":"qa3_icon","type":"Icon","parent":"qa_row","properties":{"icon":"dollar","usageHint":"action","tintColor":"#D32F2F"}}
+{"type":"component","id":"qa3_text","type":"Text","parent":"qa_row","properties":{"text":{"literalString":"开立定期"},"usageHint":"caption","color":"#757575","padding":{"top":"4"}}}
+{"type":"component","id":"qa4","type":"Column","parent":"qa_row","properties":{"distribution":"center","alignment":"centerX","children":["qa4_icon","qa4_text"],"padding":{"all":"8"}}}
+{"type":"component","id":"qa4_icon","type":"Icon","parent":"qa_row","properties":{"icon":"plus","usageHint":"action","tintColor":"#D32F2F"}}
+{"type":"component","id":"qa4_text","type":"Text","parent":"qa_row","properties":{"text":{"literalString":"编辑"},"usageHint":"caption","color":"#757575","padding":{"top":"4"}}}

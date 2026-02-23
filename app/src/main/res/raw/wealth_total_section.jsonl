@@ -1,0 +1,2 @@
+{"type":"section","id":"wealth_total_section","name":"Wealth Total Section","page":"wealth_page","order":2,"visible":true,"theme":{"backgroundColor":"transparent","padding":{"all":"${spacing.lg}"},"borderRadius":"${borderRadius.none}"},"components":["wealth_total_amount"]}
+{"type":"component","id":"wealth_total_amount","type":"Text","parent":"wealth_total_section","properties":{"text":{"literalString":"0.00 HKD"},"usageHint":"h2","fontWeight":"${fontWeights.bold}"}}

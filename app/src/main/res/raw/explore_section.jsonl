@@ -1,0 +1,4 @@
+{"type":"section","id":"explore_section","name":"Explore Section","page":"homepage","order":8,"visible":true,"theme":{"backgroundColor":"${colors.cardBackground}","padding":{"all":"${spacing.lg}"},"borderRadius":"${borderRadius.large}","border":{"width":1,"color":"${colors.cardBorder}"},"margin":{"top":"${spacing.md}","start":"${spacing.md}","end":"${spacing.md}"}},"components":["explore_row"]}
+{"type":"component","id":"explore_row","type":"Row","parent":"explore_section","properties":{"distribution":"spaceBetween","alignment":"centerY","children":["explore_text","explore_arrow"]}}
+{"type":"component","id":"explore_text","type":"Text","parent":"explore_section","properties":{"text":{"literalString":"探索更多产品"},"usageHint":"body"}}
+{"type":"component","id":"explore_arrow","type":"Icon","parent":"explore_section","properties":{"icon":"arrow_right","usageHint":"navigation","tintColor":"${colors.textSecondary}"}}
