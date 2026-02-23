@@ -1,0 +1,5 @@
+{"type":"section","id":"bottom_bar_section","name":"Bottom Bar Section","page":"homepage","order":10,"visible":true,"theme":{"backgroundColor":"${colors.cardBackground}","padding":{"all":"${spacing.md}"},"borderRadius":"${borderRadius.none}","border":{"width":1,"color":"${colors.cardBorder}","position":"top"}},"components":["chat_bar"]}
+{"type":"component","id":"chat_bar","type":"Row","parent":"bottom_bar_section","properties":{"distribution":"spaceBetween","alignment":"centerY","children":["chat_icon","chat_input","send_icon"]}}
+{"type":"component","id":"chat_icon","type":"Icon","parent":"bottom_bar_section","properties":{"icon":"chat","usageHint":"navigation","tintColor":"${colors.textSecondary}"}}
+{"type":"component","id":"chat_input","type":"Text","parent":"bottom_bar_section","properties":{"text":{"literalString":"开始对话"},"usageHint":"body","backgroundColor":"${colors.cardBackground}","padding":{"start":"${spacing.md}","end":"${spacing.md}"}}}
+{"type":"component","id":"send_icon","type":"Icon","parent":"bottom_bar_section","properties":{"icon":"arrow_right","usageHint":"navigation","tintColor":"${colors.primary}"}}

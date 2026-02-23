@@ -1,0 +1,2 @@
+{"type":"section","id":"wealth_tabs_section","name":"Wealth Tabs Section","page":"wealth_page","order":3,"visible":true,"theme":{"backgroundColor":"transparent","padding":{"all":"${spacing.md}"},"borderRadius":"${borderRadius.none}"},"components":["wealth_tabs"]}
+{"type":"component","id":"wealth_tabs","type":"Tabs","parent":"wealth_tabs_section","properties":{"tabItems":[{"title":"基金","child":"wealth_funds"},{"title":"股票","child":"wealth_stocks"}]}}

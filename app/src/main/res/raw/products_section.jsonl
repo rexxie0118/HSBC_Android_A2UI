@@ -1,0 +1,77 @@
+{"type":"section","id":"products_section","name":"Products Section","page":"homepage","order":3,"visible":true,"theme":{"backgroundColor":"transparent","padding":{"top":"${spacing.lg}","start":"${spacing.lg}","end":"${spacing.lg}","bottom":"${spacing.lg}"},"borderRadius":"${borderRadius.none}"},"components":["products_header","hsbc_card"]}
+{"type":"component","id":"products_header","type":"Row","parent":"products_section","properties":{"distribution":"spaceBetween","alignment":"centerY","children":["products_title","products_eye"]}}
+{"type":"component","id":"products_title","type":"Text","parent":"products_section","properties":{"text":{"literalString":"您的产品"},"usageHint":"h5","fontWeight":"${fontWeights.bold}"}}
+{"type":"component","id":"products_eye","type":"Icon","parent":"products_section","properties":{"icon":"eye","usageHint":"decorative","tintColor":"${colors.textSecondary}"}}
+{"type":"component","id":"hsbc_card","type":"Section","parent":"products_section","properties":{"child":"hsbc_content"}}
+{"type":"component","id":"hsbc_content","type":"Column","parent":"hsbc_card","properties":{"distribution":"start","alignment":"stretch","children":["hsbc_header","hsbc_balance","account_count","divider1","hk_current","divider2","hk_savings","divider3","aud_savings","divider4","cad_savings","divider5","chf_savings","divider6","cny_savings","divider7","eur_savings","divider8","gbp_savings","divider9","jpy_savings","divider10","nzd_savings","divider11","sgd_savings","divider12","thb_savings1","divider13","thb_savings2","divider14","usd_savings","divider15","fixed_deposit","investment_services"]}}
+{"type":"component","id":"hsbc_header","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","children":["hsbc_logo_name","hsbc_star"]}}
+{"type":"component","id":"hsbc_logo_name","type":"Row","parent":"hsbc_card","properties":{"distribution":"start","alignment":"centerY","children":["hsbc_icon","hsbc_title","hsbc_account"]}}
+{"type":"component","id":"hsbc_icon","type":"Icon","parent":"hsbc_card","properties":{"icon":"wealth","usageHint":"logo"}}
+{"type":"component","id":"hsbc_title","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"汇丰One"},"usageHint":"h5","fontWeight":"${fontWeights.bold}","padding":{"start":"${spacing.sm}"}}}
+{"type":"component","id":"hsbc_account","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"196-541130-833"},"usageHint":"caption","color":"${colors.textTertiary}","padding":{"start":"${spacing.sm}"}}}
+{"type":"component","id":"hsbc_star","type":"Icon","parent":"hsbc_card","properties":{"icon":"star","usageHint":"decorative","tintColor":"${colors.textSecondary}"}}
+{"type":"component","id":"hsbc_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"2,179.86 HKD"},"usageHint":"h3","fontWeight":"${fontWeights.bold}","padding":{"top":"${spacing.md}"}}}
+{"type":"component","id":"account_count","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"15个账户"},"usageHint":"body2","color":"${colors.textSecondary}","padding":{"top":"${spacing.xs}"}}}
+{"type":"component","id":"divider1","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"hk_current","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["hk_current_name","hk_current_balance"]}}
+{"type":"component","id":"hk_current_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"港元往来"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"hk_current_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"100.00 HKD"},"color":"${colors.textPrimary}","fontWeight":"${fontWeights.bold}"}}
+{"type":"component","id":"divider2","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"hk_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["hk_savings_name","hk_savings_balance"]}}
+{"type":"component","id":"hk_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"港元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"hk_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"2,079.86 HKD"},"color":"${colors.textPrimary}","fontWeight":"${fontWeights.bold}"}}
+{"type":"component","id":"divider3","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"aud_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["aud_savings_name","aud_savings_balance"]}}
+{"type":"component","id":"aud_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"澳元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"aud_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 AUD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider4","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"cad_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["cad_savings_name","cad_savings_balance"]}}
+{"type":"component","id":"cad_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"加拿大元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"cad_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 CAD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider5","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"chf_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["chf_savings_name","chf_savings_balance"]}}
+{"type":"component","id":"chf_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"瑞士法郎储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"chf_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 CHF"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider6","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"cny_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["cny_savings_name","cny_savings_balance"]}}
+{"type":"component","id":"cny_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"人民币储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"cny_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 CNY"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider7","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"eur_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["eur_savings_name","eur_savings_balance"]}}
+{"type":"component","id":"eur_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"欧元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"eur_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 EUR"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider8","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"gbp_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["gbp_savings_name","gbp_savings_balance"]}}
+{"type":"component","id":"gbp_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"英镑储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"gbp_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 GBP"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider9","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"jpy_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["jpy_savings_name","jpy_savings_balance"]}}
+{"type":"component","id":"jpy_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"日圆储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"jpy_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0 JPY"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider10","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"nzd_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["nzd_savings_name","nzd_savings_balance"]}}
+{"type":"component","id":"nzd_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"纽西兰元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"nzd_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 NZD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider11","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"sgd_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["sgd_savings_name","sgd_savings_balance"]}}
+{"type":"component","id":"sgd_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"新加坡元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"sgd_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 SGD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider12","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"thb_savings1","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["thb_savings1_name","thb_savings1_balance"]}}
+{"type":"component","id":"thb_savings1_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"泰铢储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"thb_savings1_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 THB"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider13","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"thb_savings2","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["thb_savings2_name","thb_savings2_balance"]}}
+{"type":"component","id":"thb_savings2_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"泰铢储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"thb_savings2_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 THB"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider14","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"usd_savings","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["usd_savings_name","usd_savings_balance"]}}
+{"type":"component","id":"usd_savings_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"美元储蓄"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"usd_savings_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 USD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"divider15","type":"ListDivider","parent":"hsbc_card","properties":{"color":"${colors.divider}","thickness":0.5,"indentStart":56}}
+{"type":"component","id":"fixed_deposit","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["fixed_deposit_name","fixed_deposit_balance"]}}
+{"type":"component","id":"fixed_deposit_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"定期存款"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"fixed_deposit_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 HKD"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"investment_services","type":"Row","parent":"hsbc_card","properties":{"distribution":"spaceBetween","alignment":"centerY","padding":{"top":"${spacing.md}","bottom":"${spacing.md}"},"children":["investment_services_name","investment_services_balance"]}}
+{"type":"component","id":"investment_services_name","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"投资服务"},"color":"${colors.textPrimary}"}}
+{"type":"component","id":"investment_services_balance","type":"Text","parent":"hsbc_card","properties":{"text":{"literalString":"0.00 HKD"},"color":"${colors.textPrimary}"}}

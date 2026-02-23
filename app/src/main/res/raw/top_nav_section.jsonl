@@ -1,0 +1,8 @@
+{"type":"section","id":"top_nav_section","name":"Top Navigation","page":"homepage","order":1,"visible":true,"theme":{"backgroundColor":"${colors.primary}","padding":{"top":"${spacing.xxxl}","bottom":"${spacing.md}","start":"${spacing.lg}","end":"${spacing.lg}"},"borderRadius":"${borderRadius.none}"},"components":["nav_row"]}
+{"type":"component","id":"nav_row","type":"Row","parent":"top_nav_section","properties":{"distribution":"spaceBetween","alignment":"centerY","children":["nav_home","nav_transfer","nav_card","nav_wealth","nav_insurance","nav_menu"]}}
+{"type":"component","id":"nav_home","type":"Icon","parent":"top_nav_section","properties":{"icon":"home","usageHint":"navigation","tintColor":"#FFFFFF"}}
+{"type":"component","id":"nav_transfer","type":"Text","parent":"top_nav_section","properties":{"text":{"literalString":"转账"},"color":"#FFFFFF","padding":{"start":"${spacing.lg}"}}}
+{"type":"component","id":"nav_card","type":"Text","parent":"top_nav_section","properties":{"text":{"literalString":"银行卡"},"color":"#FFFFFF","padding":{"start":"${spacing.lg}"}}}
+{"type":"component","id":"nav_wealth","type":"Text","parent":"top_nav_section","properties":{"text":{"literalString":"财富"},"color":"#FFCDD2","padding":{"start":"${spacing.lg}"}}}
+{"type":"component","id":"nav_insurance","type":"Text","parent":"top_nav_section","properties":{"text":{"literalString":"保险"},"color":"#FFFFFF","padding":{"start":"${spacing.lg}"}}}
+{"type":"component","id":"nav_menu","type":"Icon","parent":"top_nav_section","properties":{"icon":"menu","usageHint":"navigation","tintColor":"#FFFFFF"}}

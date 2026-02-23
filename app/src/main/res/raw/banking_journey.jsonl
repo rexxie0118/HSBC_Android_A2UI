@@ -1,0 +1,1 @@
+{"type":"journey","id":"banking_journey","name":"Banking Journey","version":"1.0","description":"Main banking user journey","pages":["homepage","wealth_page","transfer_page","insurance_page"],"defaultPage":"homepage","navigation":{"allowBack":true,"allowForward":true,"preserveState":true},"analytics":{"enabled":true,"trackPageViews":true,"trackUserActions":true}}
