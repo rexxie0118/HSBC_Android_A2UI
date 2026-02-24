@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONObject
 import org.json.JSONArray
 import java.io.InputStream
+import com.a2ui.renderer.data.DataProvider
 
 data class GlobalSettings(
     val appId: String,
@@ -176,7 +177,8 @@ object ConfigManager {
                                   "rewards_section", "wellness_section",
                                   "explore_section", "footer_section", 
                                   "bottom_bar_section", "wealth_header_section",
-                                  "wealth_total_section", "wealth_tabs_section")
+                                  "wealth_total_section", "wealth_tabs_section",
+                                  "account_list_section")
         
         for (file in sectionFiles) {
             val lines = loadJsonlFromRaw(file)
@@ -263,7 +265,8 @@ object ConfigManager {
                                   "rewards_section", "wellness_section",
                                   "explore_section", "footer_section", 
                                   "bottom_bar_section", "wealth_header_section",
-                                  "wealth_total_section", "wealth_tabs_section")
+                                  "wealth_total_section", "wealth_tabs_section",
+                                  "account_list_section")
         
         for (file in sectionFiles) {
             val lines = loadJsonlFromRaw(file)
@@ -383,7 +386,20 @@ object ConfigManager {
             tabItems = json.optJSONArray("tabItems")?.let { parseTabItems(it) },
             thickness = if (json.has("thickness")) json.getDouble("thickness") else null,
             indentStart = if (json.has("indentStart")) json.getInt("indentStart") else null,
-            indentEnd = if (json.has("indentEnd")) json.getInt("indentEnd") else null
+            indentEnd = if (json.has("indentEnd")) json.getInt("indentEnd") else null,
+            dataBinding = json.optJSONObject("dataBinding")?.let { parseDataBinding(it) }
+        )
+    }
+    
+    private fun parseDataBinding(json: JSONObject): ListDataBinding {
+        return ListDataBinding(
+            dataFile = json.optString("dataFile", ""),
+            arrayKey = json.optString("arrayKey", "items"),
+            itemLayout = json.optString("itemLayout", "default_list_item"),
+            textField = json.optString("textField", "name"),
+            subtitleField = json.optString("subtitleField", null),
+            valueField = json.optString("valueField", "value"),
+            valuePrefix = json.optString("valuePrefix", null)
         )
     }
     

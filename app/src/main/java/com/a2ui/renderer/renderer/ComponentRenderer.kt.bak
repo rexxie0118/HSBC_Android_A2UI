@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -510,28 +508,23 @@ fun renderIcon(
     if (isToggleAction) {
         val isExpanded = UIStateHolder.accountListExpanded
         
-        Box(
+        Text(
+            text = "▶",
+            fontSize = 20.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = tintColor ?: Color(0xFF666666),
             modifier = Modifier
                 .size(56.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = {
-                        android.util.Log.d("IconClick", "Toggling account list")
-                        UIStateHolder.toggleAccountList()
-                        android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
-                    })
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (isExpanded) "▼" else "▶",
-                fontSize = 20.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                color = tintColor ?: Color(0xFF666666),
-                modifier = Modifier.graphicsLayer {
+                .clickable {
+                    android.util.Log.d("IconClick", "Toggling account list")
+                    UIStateHolder.toggleAccountList()
+                    android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
+                }
+                .padding(16.dp)
+                .graphicsLayer {
                     rotationZ = if (isExpanded) 180f else 0f
                 }
-            )
-        }
+        )
         return
     }
     
@@ -1015,6 +1008,29 @@ fun renderAccountList(
                     onAction("list_item_clicked", mapOf("itemId" to it.optString("id"), "itemData" to it.toString()))
                 }
             )
+        }
+    }
+}
+                    .graphicsLayer {
+                        rotationZ = if (expanded) 180f else 0f
+                    }
+            )
+        }
+        
+        // Scrollable list items - only shown when expanded
+        if (expanded) {
+            android.util.Log.d("AccountList", "Rendering items, expanded=$expanded, count=${items.size}")
+            items.forEach { item ->
+                DynamicListItem(
+                    item = item,
+                    dataBinding = dataBinding,
+                    onItemClick = { 
+                        onAction("list_item_clicked", mapOf("itemId" to it.optString("id"), "itemData" to it.toString()))
+                    }
+                )
+            }
+        } else {
+            android.util.Log.d("AccountList", "List is collapsed, not showing items")
         }
     }
 }
