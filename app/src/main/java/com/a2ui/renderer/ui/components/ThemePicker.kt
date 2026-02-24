@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.a2ui.renderer.config.ConfigManager
 
@@ -25,7 +27,7 @@ fun ThemePicker(
     modifier: Modifier = Modifier,
     onThemeChanged: ((themeId: String) -> Unit)? = null
 ) {
-    val currentTheme by ConfigManager.themeFlow.collectAsState()
+    val currentTheme = ConfigManager.themeFlow.collectAsState(initial = null).value
     val isDarkTheme = currentTheme?.mode == "dark"
     
     Card(
@@ -103,7 +105,7 @@ private fun ThemeOptionButton(
     
     Column(
         modifier = Modifier
-            .weight(1f)
+            .width(100.dp)
             .clickable(onClick = onClick)
             .clip(RoundedCornerShape(8.dp))
             .background(
@@ -153,7 +155,7 @@ fun ThemeToggleButton(
     modifier: Modifier = Modifier,
     onToggle: ((isDark: Boolean) -> Unit)? = null
 ) {
-    val currentTheme by ConfigManager.themeFlow.collectAsState()
+    val currentTheme = ConfigManager.themeFlow.collectAsState(initial = null).value
     val isDarkTheme = currentTheme?.mode == "dark"
     
     IconButton(
@@ -164,14 +166,10 @@ fun ThemeToggleButton(
             onToggle?.invoke(!isDarkTheme)
         }
     ) {
-        Icon(
-            imageVector = if (isDarkTheme) {
-                androidx.compose.material.icons.filled.LightMode
-            } else {
-                androidx.compose.material.icons.filled.DarkMode
-            },
-            contentDescription = if (isDarkTheme) "Switch to light theme" else "Switch to dark theme",
-            tint = MaterialTheme.colorScheme.onSurface
+        Text(
+            text = if (isDarkTheme) "☀️" else "🌙",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

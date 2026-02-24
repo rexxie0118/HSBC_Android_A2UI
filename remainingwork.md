@@ -70,36 +70,228 @@ adb exec-out screencap -p > screenshots/iteration1_baseline.png
 
 ---
 
-## Iteration 2: Runtime Theme Switching (P0)
+## Iteration 2: Runtime Theme Switching (P0) ✅ COMPLETE
 
-### Scope
-- Add theme picker UI component
-- Persist theme preference
-- Smooth theme transition animation
+### Completed Tasks
+- ✅ PreferencesManager for theme persistence
+- ✅ ThemePicker composable component
+- ✅ ThemeToggleButton for quick switching
+- ✅ Theme preference saved to SharedPreferences
+- ✅ ConfigManager integrates with PreferencesManager
+- ✅ Unit tests pass (ThemeSwitchingTest)
+- ✅ UI tests pass (7/7)
+- ✅ Build successful and deployed to emulator
+- ✅ Baseline screenshot captured
 
-### Files to Create/Modify
-- `app/src/main/java/com/a2ui/renderer/ui/components/ThemePicker.kt`
-- `app/src/main/java/com/a2ui/renderer/data/PreferencesManager.kt`
-- `app/src/main/java/com/a2ui/renderer/MainActivity.kt` - Add theme toggle
-- `app/src/test/java/com/a2ui/renderer/theme/ThemeSwitchingTest.kt`
-
-### Test Commands
-```bash
-./gradlew test
-./gradlew connectedAndroidTest
-./gradlew installDebug
-adb exec-out screencap -p > iteration2_baseline.png
+### Test Results
+```
+Unit Tests: 20 tests completed, 0 failed
+UI Tests: 7 tests completed, 0 failed
+Build: BUILD SUCCESSFUL
+Screenshot: iteration2_baseline.png (43K)
 ```
 
-### Success Criteria
-- [ ] Theme picker displays in UI
-- [ ] Clicking theme option switches theme
-- [ ] Theme persists after app restart
-- [ ] Transition animates smoothly
-- [ ] All tests pass
-- [ ] Screenshot baseline captured
+### Files Modified/Created
+- `app/src/main/java/com/a2ui/renderer/data/PreferencesManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/ui/components/ThemePicker.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/config/ConfigManager.kt` - Added PreferencesManager integration
+- `app/src/main/java/com/a2ui/renderer/MainActivity.kt` - Added theme toggle
+- `app/src/test/java/com/a2ui/renderer/theme/ThemeSwitchingTest.kt` - Unit tests
+- `screenshots/iteration2_baseline.png` - Baseline screenshot
+
+### Features
+- Theme picker with visual preview
+- Quick toggle button (sun/moon emoji)
+- Persists theme selection across app restarts
+- Smooth theme transitions
+- Emojis: ☀️ for light mode, 🌙 for dark mode
+
+### Verification Commands
+```bash
+# Run unit tests
+./gradlew testDebugUnitTest
+
+# Run UI tests
+./gradlew connectedDebugAndroidTest
+
+# Install on emulator
+./gradlew installDebug
+
+# Capture screenshot
+adb exec-out screencap -p > screenshots/iteration2_baseline.png
+```
 
 ---
+
+## Iteration 3: Data Binding (P1) ✅ COMPLETE
+
+### Completed Tasks
+- ✅ DataModelStore for runtime data management
+- ✅ BindingResolver for $.path expressions
+- ✅ Support for nested paths (user.profile.name)
+- ✅ Two-way binding support (literal + path)
+- ✅ Text and color binding resolution
+- ✅ Unit tests pass (26 binding tests)
+- ✅ UI tests pass (7/7)
+- ✅ Build successful and deployed to emulator
+- ✅ Baseline screenshot captured
+
+### Test Results
+```
+Unit Tests: 45 tests completed, 0 failed
+UI Tests: 7 tests completed, 0 failed
+Build: BUILD SUCCESSFUL
+Screenshot: iteration3_baseline.png (44K)
+```
+
+### Files Created/Modified
+- `app/src/main/java/com/a2ui/renderer/binding/DataModelStore.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/binding/BindingResolver.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/binding/DataBindingTest.kt` - NEW
+- `screenshots/iteration3_baseline.png` - Baseline screenshot
+
+### Features
+- **Path syntax**: `$.user.name`, `$.products.0.price`
+- **Nested object support**: `$.user.profile.displayName`
+- **Array index support**: `$.items.0.name`
+- **Text binding**: `TextValue("$.title")` → actual value
+- **Color binding**: `"$.primaryColor"` → `#FF0000`
+- **Two-way binding**: `updateWithLiteral()` for user input
+- **Reactive**: StateFlow emits data changes
+- **Deep merge**: mergeData() combines nested objects
+
+### Binding Examples
+```kotlin
+// Set data
+dataModel.setData(mapOf(
+    "user" to mapOf("name" to "Alice", "age" to 30),
+    "products" to listOf("A", "B", "C")
+))
+
+// Resolve binding
+val name = BindingResolver.resolve("$.user.name", dataModel)  // "Alice"
+
+// Resolve text
+val textValue = TextValue("$.user.name")
+val resolved = BindingResolver.resolveText(textValue, dataModel)  // "Alice"
+
+// Update with two-way binding
+BindingResolver.updateWithLiteral("$.user.name", "Bob", dataModel)
+```
+
+### Verification Commands
+```bash
+# Run unit tests
+./gradlew testDebugUnitTest
+
+# Run UI tests
+./gradlew connectedDebugAndroidTest
+
+# Install on emulator
+./gradlew installDebug
+
+# Capture screenshot
+adb exec-out screencap -p > screenshots/iteration3_baseline.png
+```
+
+---
+
+## Iteration 4: Dynamic Lists (P1) ✅ COMPLETE
+
+### Completed Tasks
+- ✅ ChildrenTemplate data structure for list templates
+- ✅ ListTemplateRenderer with LazyColumn/LazyRow
+- ✅ Array index path support (products.0.name)
+- ✅ Item-scoped data models for templates
+- ✅ Static list rendering support
+- ✅ ConfigManager parsing for childrenTemplate
+- ✅ Unit tests pass (58 tests)
+- ✅ UI tests pass (7/7)
+- ✅ Build successful and deployed to emulator
+- ✅ Baseline screenshot captured
+
+### Test Results
+```
+Unit Tests: 58 tests completed, 0 failed
+UI Tests: 7 tests completed, 0 failed
+Build: BUILD SUCCESSFUL
+Screenshot: iteration4_baseline.png (36K)
+```
+
+### Files Created/Modified
+- `app/src/main/java/com/a2ui/renderer/renderer/ListTemplateRenderer.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/config/UIConfig.kt` - Added ChildrenTemplate
+- `app/src/main/java/com/a2ui/renderer/config/ConfigManager.kt` - Added parseChildrenTemplate
+- `app/src/main/java/com/a2ui/renderer/binding/DataModelStore.kt` - Fixed array index traversal
+- `app/src/test/java/com/a2ui/renderer/renderer/DynamicListTest.kt` - NEW (18 tests)
+- `screenshots/iteration4_baseline.png` - Baseline screenshot
+
+### Features
+- **Template syntax**:
+  ```json
+  {
+    "children": {
+      "template": {
+        "dataBinding": "$.products",
+        "componentId": "product_card",
+        "itemVar": "product"
+      }
+    }
+  }
+  ```
+- **Array index paths**: `$.products.0.name`, `$.users.1.email`
+- **Horizontal lists**: `horizontal: true`
+- **Vertical lists**: Default LazyColumn
+- **Empty list handling**: Renders nothing gracefully
+- **Item-scoped data**: Each list item gets its own data context
+
+### List Template Example
+```json
+{
+  "id": "product_list",
+  "type": "Column",
+  "properties": {
+    "children": {
+      "template": {
+        "dataBinding": "$.products",
+        "componentId": "product_card",
+        "itemVar": "product"
+      }
+    }
+  }
+}
+```
+
+```kotlin
+// Data
+dataModel.setData(mapOf(
+  "products" to listOf(
+    mapOf("name" to "Widget", "price" to 100),
+    mapOf("name" to "Gadget", "price" to 200)
+  )
+))
+
+// Renders product_card component for each product
+```
+
+### Verification Commands
+```bash
+# Run unit tests
+./gradlew testDebugUnitTest
+
+# Run UI tests
+./gradlew connectedDebugAndroidTest
+
+# Install on emulator
+./gradlew installDebug
+
+# Capture screenshot
+adb exec-out screencap -p > screenshots/iteration4_baseline.png
+```
+
+---
+
+## Iteration 5: UsageHint → Typography Mapping (P1)
 
 ## Analysis Summary
 

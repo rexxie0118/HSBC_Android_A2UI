@@ -6,6 +6,9 @@ import org.json.JSONArray
 import java.io.InputStream
 import com.a2ui.renderer.data.DataProvider
 import com.a2ui.renderer.data.PreferencesManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class GlobalSettings(
     val appId: String,
@@ -396,7 +399,19 @@ object ConfigManager {
             thickness = if (json.has("thickness")) json.getDouble("thickness") else null,
             indentStart = if (json.has("indentStart")) json.getInt("indentStart") else null,
             indentEnd = if (json.has("indentEnd")) json.getInt("indentEnd") else null,
-            dataBinding = json.optJSONObject("dataBinding")?.let { parseDataBinding(it) }
+            dataBinding = json.optJSONObject("dataBinding")?.let { parseDataBinding(it) },
+            childrenTemplate = json.optJSONObject("children")?.let { parseChildrenTemplate(it) }
+        )
+    }
+    
+    private fun parseChildrenTemplate(json: JSONObject): ChildrenTemplate? {
+        if (!json.has("template")) return null
+        
+        val templateJson = json.getJSONObject("template")
+        return ChildrenTemplate(
+            dataBinding = templateJson.optString("dataBinding", ""),
+            componentId = templateJson.optString("componentId", ""),
+            itemVar = templateJson.optString("itemVar", null)
         )
     }
     

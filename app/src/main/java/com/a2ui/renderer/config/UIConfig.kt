@@ -170,7 +170,14 @@ data class ComponentProperties(
     val thickness: Double? = null,
     val indentStart: Int? = null,
     val indentEnd: Int? = null,
-    val dataBinding: ListDataBinding? = null
+    val dataBinding: ListDataBinding? = null,
+    val childrenTemplate: ChildrenTemplate? = null
+)
+
+data class ChildrenTemplate(
+    val dataBinding: String,
+    val componentId: String,
+    val itemVar: String? = null
 )
 
 data class InlineComponent(
