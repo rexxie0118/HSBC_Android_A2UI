@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -510,28 +508,23 @@ fun renderIcon(
     if (isToggleAction) {
         val isExpanded = UIStateHolder.accountListExpanded
         
-        Box(
+        Text(
+            text = if (isExpanded) "▼" else "▶",
+            fontSize = 20.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = tintColor ?: Color(0xFF666666),
             modifier = Modifier
                 .size(56.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = {
+                .clickable(onClick = {
                         android.util.Log.d("IconClick", "Toggling account list")
                         UIStateHolder.toggleAccountList()
                         android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
-                    })
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (isExpanded) "▼" else "▶",
-                fontSize = 20.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                color = tintColor ?: Color(0xFF666666),
-                modifier = Modifier.graphicsLayer {
+                    }
+                )
+                .graphicsLayer {
                     rotationZ = if (isExpanded) 180f else 0f
                 }
-            )
-        }
+        )
         return
     }
     
