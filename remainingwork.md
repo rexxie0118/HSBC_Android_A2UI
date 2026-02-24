@@ -1,5 +1,106 @@
 # Remaining Work - A2UI Renderer
 
+## Iteration Plan
+
+Each iteration includes:
+- ✅ Implementation
+- ✅ Unit tests (run `./gradlew test`)
+- ✅ UI tests (run `./gradlew connectedAndroidTest`)
+- ✅ Build on emulator (run `./gradlew installDebug`)
+- ✅ Screenshot comparison (capture full content as baseline)
+
+| Iteration | Focus | Tasks | Status |
+|-----------|-------|-------|--------|
+| **Iteration 1** | P0: Theme Integration | Connect theme JSON to Compose, Typography mapping | ✅ **COMPLETE** |
+| **Iteration 2** | P0: Runtime Theme Switching | ThemeManager ViewModel, theme picker | ⏳ Pending |
+| **Iteration 3** | P1: Data Binding | DataModelStore, binding resolver | ⏳ Pending |
+| **Iteration 4** | P1: Dynamic Lists | Template rendering, list iteration | ⏳ Pending |
+| **Iteration 5** | P2: Shadows & Components | Shadow system, missing components | ⏳ Pending |
+
+---
+
+## Iteration 1: Theme Integration (P0) ✅ COMPLETE
+
+### Completed Tasks
+- ✅ Theme JSON colors mapped to Material3 ColorScheme
+- ✅ Typography from JSON mapped to Material Typography
+- ✅ ConfigManager.themeFlow provides reactive theme updates
+- ✅ setTheme() method for runtime theme switching
+- ✅ Unit tests for theme configuration (ThemeConfigTest)
+- ✅ UI tests pass (AccountListCollapseTest)
+- ✅ Build successful and deployed to emulator
+- ✅ Baseline screenshot captured
+
+### Test Results
+```
+Unit Tests: 20 tests completed, 0 failed
+UI Tests: 7 tests completed, 0 failed
+Build: BUILD SUCCESSFUL
+Screenshot: iteration1_complete.png (1.3M)
+```
+
+### Files Modified/Created
+- `app/src/main/java/com/a2ui/renderer/ui/theme/Theme.kt` - Dynamic color scheme & typography
+- `app/src/main/java/com/a2ui/renderer/config/ConfigManager.kt` - Theme Flow & setTheme()
+- `app/src/test/java/com/a2ui/renderer/theme/ThemeConfigTest.kt` - Unit tests
+- `screenshots/iteration1_complete.png` - Baseline screenshot
+
+### Verification Commands
+```bash
+# Run unit tests
+./gradlew testDebugUnitTest
+
+# Run UI tests
+./gradlew connectedDebugAndroidTest
+
+# Install on emulator
+./gradlew installDebug
+
+# Capture screenshot
+adb exec-out screencap -p > screenshots/iteration1_baseline.png
+```
+
+### Theme Colors Verified
+- Light theme primary: #D32F2F (HSBC Red) ✅
+- Light theme background: #F5F5F5 ✅
+- Dark theme primary: #FF5252 ✅
+- Dark theme background: #121212 ✅
+- Typography h1: 36sp, bold ✅
+- Typography body1: 16sp, regular ✅
+
+---
+
+## Iteration 2: Runtime Theme Switching (P0)
+
+### Scope
+- Add theme picker UI component
+- Persist theme preference
+- Smooth theme transition animation
+
+### Files to Create/Modify
+- `app/src/main/java/com/a2ui/renderer/ui/components/ThemePicker.kt`
+- `app/src/main/java/com/a2ui/renderer/data/PreferencesManager.kt`
+- `app/src/main/java/com/a2ui/renderer/MainActivity.kt` - Add theme toggle
+- `app/src/test/java/com/a2ui/renderer/theme/ThemeSwitchingTest.kt`
+
+### Test Commands
+```bash
+./gradlew test
+./gradlew connectedAndroidTest
+./gradlew installDebug
+adb exec-out screencap -p > iteration2_baseline.png
+```
+
+### Success Criteria
+- [ ] Theme picker displays in UI
+- [ ] Clicking theme option switches theme
+- [ ] Theme persists after app restart
+- [ ] Transition animates smoothly
+- [ ] All tests pass
+- [ ] Screenshot baseline captured
+
+---
+
 ## Analysis Summary
 
 This document tracks remaining work to complete the A2UI renderer implementation, based on comparison of:

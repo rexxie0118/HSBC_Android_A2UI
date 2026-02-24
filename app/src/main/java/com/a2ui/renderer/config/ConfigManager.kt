@@ -5,6 +5,7 @@ import org.json.JSONObject
 import org.json.JSONArray
 import java.io.InputStream
 import com.a2ui.renderer.data.DataProvider
+import com.a2ui.renderer.data.PreferencesManager
 
 data class GlobalSettings(
     val appId: String,
@@ -133,12 +134,16 @@ object ConfigManager {
     private var themes: Map<String, Theme> = emptyMap()
     private var iconMapping: IconMapping? = null
     private var uiConfig: UIConfig = UIConfig()
+    private var preferencesManager: PreferencesManager? = null
     
     private lateinit var context: Context
     private var currentTheme: Theme? = null
+    private val _themeFlow = MutableStateFlow<Theme?>(null)
+    val themeFlow: StateFlow<Theme?> = _themeFlow.asStateFlow()
     
     fun init(context: Context) {
         this.context = context.applicationContext
+        preferencesManager = PreferencesManager(context)
         loadAllConfigs()
     }
     
@@ -149,8 +154,12 @@ object ConfigManager {
             loadIconMapping()
             loadUIConfig()
             
-            val themeId = globalSettings?.theme?.defaultTheme ?: "banking_light"
-            currentTheme = themes[themeId]
+            // Load saved theme preference, or use default
+            val savedThemeId = preferencesManager?.getSelectedTheme() 
+                ?: globalSettings?.theme?.defaultTheme 
+                ?: "banking_light"
+            currentTheme = themes[savedThemeId]
+            _themeFlow.value = currentTheme
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -699,6 +708,21 @@ object ConfigManager {
     fun getTheme(themeId: String): Theme? = themes[themeId]
     fun getCurrentTheme(): Theme? = currentTheme
     fun getIconMapping(): IconMapping? = iconMapping
+    
+    fun setTheme(themeId: String) {
+        val newTheme = themes[themeId]
+        if (newTheme != null && newTheme !== currentTheme) {
+            currentTheme = newTheme
+            _themeFlow.value = newTheme
+            
+            // Persist theme preference
+            preferencesManager?.setSelectedTheme(themeId)
+            
+            globalSettings?.theme?.copy(currentMode = newTheme.mode)?.let {
+                globalSettings = globalSettings?.copy(theme = it)
+            }
+        }
+    }
     
     fun resolveColor(colorRef: String): String {
         if (colorRef == "transparent") {
