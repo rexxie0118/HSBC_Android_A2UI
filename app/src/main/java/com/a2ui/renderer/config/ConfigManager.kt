@@ -6,6 +6,7 @@ import org.json.JSONArray
 import java.io.InputStream
 import com.a2ui.renderer.data.DataProvider
 import com.a2ui.renderer.data.PreferencesManager
+import com.a2ui.renderer.bridge.BuiltinFunctions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -147,6 +148,7 @@ object ConfigManager {
     fun init(context: Context) {
         this.context = context.applicationContext
         preferencesManager = PreferencesManager(context)
+        BuiltinFunctions.registerAll()
         loadAllConfigs()
     }
     

@@ -34,6 +34,10 @@ import com.a2ui.renderer.config.ListDataBinding
 import com.a2ui.renderer.icon.IconManager
 import com.a2ui.renderer.data.DataProvider
 import com.a2ui.renderer.state.UIStateHolder
+import com.a2ui.renderer.binding.DataModelStore
+import com.a2ui.renderer.rules.ValidationEngine
+import com.a2ui.renderer.rules.DependencyResolver
+import com.a2ui.renderer.modifier.ShadowModifier
 import org.json.JSONObject
 
 @Composable
@@ -107,7 +111,7 @@ fun renderComponent(
         "Icon" -> renderIcon(component, onAction)
         "Card" -> renderCard(component, onAction, onNavigate)
         "Tabs" -> renderTabs(component, onAction, onNavigate)
-        "TextField" -> renderTextField(component)
+        "TextField" -> renderTextField(component, onAction, onNavigate)
         "Divider" -> renderDivider(component)
         "Image" -> renderImage(component)
         "Button" -> renderButton(component, onAction)
@@ -573,7 +577,21 @@ fun renderCard(
     val backgroundColor = props.backgroundColor?.let {
         try { Color(android.graphics.Color.parseColor(ConfigManager.resolveColor(it))) } catch (e: Exception) { Color.White }
     } ?: Color.White
-    val elevation = props.weight?.toFloat()?.dp ?: 2.dp
+    
+    // Get elevation from properties or theme
+    val elevationLevel = props.elevation ?: component.theme?.shadow?.toIntOrNull() ?: 1
+    val elevationDp = ShadowModifier.getElevationForLevel(elevationLevel)
+    
+    val cornerRadius = when (props.shape) {
+        "small" -> 4.dp
+        "medium" -> 8.dp
+        "large" -> 12.dp
+        "xl" -> 16.dp
+        "full" -> 9999.dp
+        else -> 16.dp
+    }
+    
+    val shape = RoundedCornerShape(cornerRadius)
     
     Card(
         modifier = Modifier
@@ -581,8 +599,8 @@ fun renderCard(
             .then(
                 if (marginValues != null) Modifier.padding(marginValues) else Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
             ),
-        elevation = CardDefaults.cardElevation(elevation),
-        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(elevationDp),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
         Column(
@@ -656,19 +674,67 @@ fun renderTabs(
 
 @Composable
 fun renderTextField(
-    component: ComponentConfig
+    component: ComponentConfig,
+    onAction: (String, Map<String, Any>?) -> Unit,
+    onNavigate: (String) -> Unit
 ) {
     val props = component.properties ?: return
     val label = props.label?.literalString ?: ""
+    val dataModel = remember { DataModelStore() }
+    var value by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    // Check visibility from dependencies
+    var isVisible by remember { mutableStateOf(true) }
+    var isEnabled by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(value) {
+        // Update data model
+        dataModel.updateAtPath(component.id, value)
+        
+        // Check dependencies
+        component.dependencies?.let { deps ->
+            val resolved = DependencyResolver.resolveDependencies(listOf(component), dataModel)
+            resolved.updates[component.id]?.let { state ->
+                state.visible?.let { isVisible = it }
+                state.enabled?.let { isEnabled = it }
+            }
+        }
+    }
+    
+    if (!isVisible) return
+    
+    LaunchedEffect(value) {
+        // Validate on value change (debounced)
+        kotlinx.coroutines.delay(300)
+        
+        component.validation?.let { validation ->
+            val errors = ValidationEngine.validateField(component, dataModel)
+            showError = errors.isNotEmpty()
+            errorMessage = errors.firstOrNull()?.message ?: ""
+        }
+    }
     
     OutlinedTextField(
-        value = "",
-        onValueChange = { },
+        value = value,
+        onValueChange = { newValue ->
+            value = newValue
+            // Trigger action if defined
+            component.action?.let { action ->
+                onAction(action.event, action.context)
+            }
+        },
         label = { Text(label) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(20.dp),
+        enabled = isEnabled,
+        isError = showError,
+        supportingText = if (showError) {
+            { Text(errorMessage, color = MaterialTheme.colorScheme.error) }
+        } else null
     )
 }
 

@@ -1,5 +1,8 @@
 package com.a2ui.renderer.config
 
+import com.a2ui.renderer.rules.ValidationConfig
+import com.a2ui.renderer.rules.DependencyConfig
+
 data class UIConfig(
     val journeys: Map<String, JourneyConfig> = emptyMap(),
     val pages: Map<String, PageConfig> = emptyMap(),
@@ -67,7 +70,10 @@ data class ComponentConfig(
     val properties: ComponentProperties? = null,
     val theme: SectionThemeConfig? = null,
     val action: ActionConfig? = null,
-    val children: List<String> = emptyList()
+    val children: List<String> = emptyList(),
+    val validation: ValidationConfig? = null,
+    val dependencies: DependencyConfig? = null,
+    val visibility: VisibilityConfig? = null
 )
 
 data class ListDataBinding(
@@ -171,7 +177,8 @@ data class ComponentProperties(
     val indentStart: Int? = null,
     val indentEnd: Int? = null,
     val dataBinding: ListDataBinding? = null,
-    val childrenTemplate: ChildrenTemplate? = null
+    val childrenTemplate: ChildrenTemplate? = null,
+    val elevation: Int? = null
 )
 
 data class ChildrenTemplate(
@@ -198,4 +205,9 @@ data class TabItem(
 data class ActionConfig(
     val event: String,
     val context: Map<String, Any>? = null
+)
+
+data class VisibilityConfig(
+    val rule: String,
+    val transition: String = "fade"
 )
