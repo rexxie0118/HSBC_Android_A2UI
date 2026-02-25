@@ -5241,16 +5241,27 @@ class ThemeManager @Inject constructor(
 | 2 | Runtime Theme Switching | ✅ Complete | 20 passing | 4 created/modified | 2h |
 | 3 | Data Binding | ✅ Complete | 45 passing | 3 created | 3-4h |
 | 4 | Dynamic Lists | ✅ Complete | 58 passing | 3 created | 4-5h |
-| 5 | **Dynamic UI Rules** | ⏳ Pending | - | 6 new (planned) | 20-30h |
-| 6 | Multi-Page Journey | ⏳ Pending | - | 2 new (planned) | 8-10h |
-| 7 | UsageHint Typography | ⏳ Pending | - | 2 new (planned) | 3-5h |
-| 8 | Shadows & Components | ⏳ Pending | - | 2 new (planned) | 3-5h |
-| 9 | **UI Security (8 Policies)** | ⏳ Pending | - | 9 new (planned) | 29-39h |
-| 10 | **Performance (5 Strategies)** | ⏳ Pending | - | 9 new (planned) | 21-30h |
+| 5 | Dynamic UI Rules | ✅ Complete | 81+ passing | 6 created | 20-30h |
+| 6 | Multi-Page Journey | ✅ Complete | 7 UI tests | 1 modified | 8-10h |
+| 7 | UsageHint Typography | ✅ Complete | Included | 1 modified | 3-5h |
+| 8 | Shadows & Components | ✅ Complete | 10 passing | 2 created | 3-5h |
+| 9 | UI Security (8 Policies) | ✅ Complete | - | 5 created | 29-39h |
+| 10 | Performance (5 Strategies) | ✅ Complete | - | 2 created | 21-30h |
+| 11 | Multi-Domain Model | ✅ Complete | - | 2 created | 38-51h |
+| 12 | Advanced Animations | ⏳ Pending | - | 4 new (planned) | 8-12h |
+| 13 | Enhanced Accessibility | ⏳ Pending | - | 5 new (planned) | 10-15h |
+| 14 | Offline Support | ✅ Complete | 10 passing | 4 created | 15-20h |
+| 15 | Internationalization | ⏳ Pending | - | 4 new (planned) | 12-18h |
+| 16 | Advanced Components (A2UI) | ⏳ Pending | - | 6 new (Phase 1) | 14-20h |
 
-**Overall Progress**: 10/10 iterations documented (100%)
+**Overall Progress**: 12/16 iterations complete (75%)
 
-**Total Estimated Remaining**: Fully specified and ready for implementation
+**Core Features**: ✅ COMPLETE (Iterations 1-11, 14)  
+**Enhancement Features**: ⏳ PENDING (Iterations 12, 13, 15, 16)
+
+**Phase 1 Priority**: Iteration 16 (A2UI compatibility - Modal, Slider, DateTimeInput)
+
+**Total Estimated Remaining**: 44-65 hours (Phase 1: 14-20h)
 
 ---
 
@@ -5622,4 +5633,569 @@ class DataModelManager {
 - **Total**: 38-51 hours
 
 ---
+
+## Iteration 12: Advanced Animations (P2)
+
+### Scope
+Implement component-level animations, animated state changes, and custom animation curves from JSON configuration.
+
+### Tasks
+- [ ] Create AnimationConfig data class
+- [ ] Implement AnimationModifier composable
+- [ ] Add animation support to components
+- [ ] Support custom animation curves from JSON
+- [ ] Implement gesture-based animations
+- [ ] Add animated visibility transitions
+- [ ] Write animation tests
+
+### Files to Create/Modify
+- `app/src/main/java/com/a2ui/renderer/animation/AnimationConfig.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/modifier/AnimationModifier.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/components/AnimatedVisibility.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/animation/AnimationTest.kt` - NEW
+
+### Animation Configuration
+
+```json
+{
+  "type": "Button",
+  "id": "animated_button",
+  "animations": {
+    "onPress": {
+      "type": "scale",
+      "scale": 0.95,
+      "duration": 150,
+      "easing": "easeOut"
+    },
+    "onRelease": {
+      "type": "scale",
+      "scale": 1.0,
+      "duration": 150,
+      "easing": "easeOut"
+    },
+    "onAppear": {
+      "type": "fadeIn",
+      "duration": 300,
+      "delay": 0
+    }
+  }
+}
+```
+
+### Animation Types
+
+| Type | Properties | Usage |
+|------|------------|-------|
+| `scale` | scale, duration, easing | Button press, card expand |
+| `fade` | alpha, duration, easing | Appear/disappear |
+| `slide` | offsetX, offsetY, duration | Enter/exit transitions |
+| `rotate` | degrees, duration, easing | Loading, refresh |
+| `shrink` | shrinkWidth, shrinkHeight | Dismiss actions |
+
+### Success Criteria
+- [ ] Component-level animations work
+- [ ] Custom curves from JSON
+- [ ] Gesture-based animations
+- [ ] Performance < 16ms per frame
+- [ ] All tests pass
+
+### Estimated Effort
+- Implementation: 6-8 hours
+- Testing: 2-3 hours
+- **Total**: 8-12 hours
+
+---
+
+## Iteration 13: Enhanced Accessibility (P2)
+
+### Scope
+Implement full accessibility support including screen reader, keyboard navigation, high contrast modes, and focus management.
+
+### Tasks
+- [ ] Create AccessibilityManager
+- [ ] Implement keyboard navigation
+- [ ] Add high contrast mode support
+- [ ] Implement focus management
+- [ ] Add accessibility actions
+- [ ] Support TalkBack/VoiceOver
+- [ ] Write accessibility tests
+
+### Files to Create/Modify
+- `app/src/main/java/com/a2ui/renderer/accessibility/AccessibilityManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/accessibility/KeyboardNav.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/accessibility/FocusManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/accessibility/HighContrastMode.kt` - NEW
+- `app/src/androidTest/java/com/a2ui/renderer/accessibility/AccessibilityTest.kt` - NEW
+
+### Accessibility Features
+
+**Screen Reader Support**:
+```kotlin
+@Composable
+fun AccessibleText(text: String, label: String) {
+    Text(
+        text = text,
+        modifier = Modifier.semantics {
+            contentDescription = label
+            role = Role.Text
+        }
+    )
+}
+```
+
+**Keyboard Navigation**:
+```kotlin
+@Composable
+fun KeyboardNavigableList(items: List<String>) {
+    var focusedIndex by remember { mutableStateOf(0) }
+    
+    Column(
+        modifier = Modifier.onKeyEvent { keyEvent ->
+            when (keyEvent.key) {
+                Key.DirectionDown -> {
+                    focusedIndex = (focusedIndex + 1) % items.size
+                    true
+                }
+                Key.DirectionUp -> {
+                    focusedIndex = (focusedIndex - 1 + items.size) % items.size
+                    true
+                }
+                else -> false
+            }
+        }
+    ) {
+        items.forEachIndexed { index, item ->
+            AccessibleListItem(item, isFocused = index == focusedIndex)
+        }
+    }
+}
+```
+
+**High Contrast Mode**:
+```json
+{
+  "theme": {
+    "highContrast": {
+      "enabled": true,
+      "colors": {
+        "primary": "#000000",
+        "background": "#FFFFFF",
+        "text": "#000000",
+        "border": "#000000"
+      },
+      "borderWidth": 2
+    }
+  }
+}
+```
+
+### Accessibility Checklist
+- [ ] All interactive elements focusable
+- [ ] Content descriptions for images
+- [ ] Minimum touch target 48dp
+- [ ] Keyboard navigation works
+- [ ] High contrast mode supported
+- [ ] Screen reader announcements
+- [ ] Focus indicators visible
+- [ ] Error states announced
+
+### Success Criteria
+- [ ] WCAG 2.1 AA compliance
+- [ ] TalkBack/VoiceOver support
+- [ ] Full keyboard navigation
+- [ ] High contrast mode
+- [ ] All accessibility tests pass
+
+### Estimated Effort
+- Implementation: 8-12 hours
+- Testing: 2-3 hours
+- **Total**: 10-15 hours
+
+---
+
+## Iteration 14: Offline Support (P2)
+
+### Scope
+Implement offline functionality with local caching, message queue, and automatic synchronization.
+
+### Tasks
+- [ ] Create CacheManager for surface caching
+- [ ] Implement MessageQueue for offline messages
+- [ ] Create SyncManager for synchronization
+- [ ] Implement conflict resolution
+- [ ] Add storage management
+- [ ] Support network status detection
+- [ ] Write offline tests
+
+### Files to Create/Modify
+- `app/src/main/java/com/a2ui/renderer/offline/CacheManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/offline/MessageQueue.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/offline/SyncManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/network/NetworkStatus.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/offline/OfflineTest.kt` - NEW
+
+### Offline Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              Offline Manager                            │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │ CacheManager │  │ MessageQueue │  │ SyncManager  │ │
+│  │              │  │              │  │              │ │
+│  │ - Surface    │  │ - Outgoing   │  │ - Detect     │ │
+│  │   Cache      │  │ - Retry      │  │   Conflict   │ │
+│  │ - Data       │  │ - Priority   │  │ - Resolve    │ │
+│  │   Cache      │  │ - Queue      │  │ - Sync       │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cache Strategy
+
+```kotlin
+object CacheManager {
+    private val surfaceCache = LruCache<String, SurfaceConfig>(100)
+    private val dataCache = LruCache<String, Any>(500)
+    
+    fun cacheSurface(surfaceId: String, config: SurfaceConfig) {
+        surfaceCache.put(surfaceId, config)
+        persistToDisk(surfaceId, config)
+    }
+    
+    fun getSurface(surfaceId: String): SurfaceConfig? {
+        return surfaceCache.get(surfaceId) ?: loadFromDisk(surfaceId)
+    }
+    
+    fun clearCache(surfaceId: String) {
+        surfaceCache.remove(surfaceId)
+        deleteFromDisk(surfaceId)
+    }
+}
+```
+
+### Message Queue
+
+```kotlin
+object MessageQueue {
+    private val queue = ConcurrentLinkedQueue<OutgoingMessage>()
+    
+    fun enqueue(message: OutgoingMessage) {
+        if (NetworkStatus.isOnline) {
+            sendImmediately(message)
+        } else {
+            queue.add(message)
+            persistToDisk(message)
+        }
+    }
+    
+    fun flushQueue() {
+        while (queue.isNotEmpty()) {
+            val message = queue.poll()
+            sendImmediately(message)
+        }
+    }
+}
+```
+
+### Conflict Resolution
+
+```kotlin
+object ConflictResolver {
+    enum class Strategy {
+        CLIENT_WINS,
+        SERVER_WINS,
+        MERGE,
+        MANUAL
+    }
+    
+    fun resolve(local: DataModel, remote: DataModel, strategy: Strategy): DataModel {
+        return when (strategy) {
+            Strategy.CLIENT_WINS -> local
+            Strategy.SERVER_WINS -> remote
+            Strategy.MERGE -> mergeModels(local, remote)
+            Strategy.MANUAL -> throw ManualResolutionRequiredException()
+        }
+    }
+}
+```
+
+### Success Criteria
+- [ ] Surfaces cached locally
+- [ ] Messages queued when offline
+- [ ] Automatic sync on reconnect
+- [ ] Conflict resolution works
+- [ ] Storage management (limits, cleanup)
+- [ ] All offline tests pass
+
+### Estimated Effort
+- Implementation: 12-16 hours
+- Testing: 3-4 hours
+- **Total**: 15-20 hours
+
+---
+
+## Iteration 15: Internationalization (P2)
+
+### Scope
+Implement multi-language support, RTL layout, locale-specific formatting, and string externalization.
+
+### Tasks
+- [ ] Create LocaleManager
+- [ ] Implement string resource system
+- [ ] Add RTL layout support
+- [ ] Implement locale-specific formatting
+- [ ] Support dynamic language switching
+- [ ] Write i18n tests
+
+### Files to Create/Modify
+- `app/src/main/java/com/a2ui/renderer/i18n/LocaleManager.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/i18n/StringResources.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/i18n/Formatter.kt` - NEW
+- `app/src/main/res/values-{locale}/strings.xml` - NEW
+- `app/src/test/java/com/a2ui/renderer/i18n/I18nTest.kt` - NEW
+
+### String Resources
+
+```json
+{
+  "strings": {
+    "en": {
+      "welcome": "Welcome",
+      "submit": "Submit",
+      "error_required": "This field is required"
+    },
+    "es": {
+      "welcome": "Bienvenido",
+      "submit": "Enviar",
+      "error_required": "Este campo es obligatorio"
+    },
+    "ar": {
+      "welcome": "مرحبا",
+      "submit": "إرسال",
+      "error_required": "هذا الحقل مطلوب"
+    }
+  }
+}
+```
+
+### RTL Support
+
+```kotlin
+@Composable
+fun RtlAwareLayout(isRtl: Boolean) {
+    Row(
+        horizontalArrangement = if (isRtl) {
+            Arrangement.End
+        } else {
+            Arrangement.Start
+        },
+        modifier = Modifier.layoutDirection(
+            if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+        )
+    ) {
+        // Content
+    }
+}
+```
+
+### Success Criteria
+- [ ] Multi-language support
+- [ ] RTL layout works
+- [ ] Locale-specific formatting (dates, numbers, currency)
+- [ ] Dynamic language switching
+- [ ] All i18n tests pass
+
+### Estimated Effort
+- Implementation: 10-14 hours
+- Testing: 2-4 hours
+- **Total**: 12-18 hours
+
+---
+
+## Iteration 16: Advanced Components (P2) - A2UI Compatibility
+
+### Scope
+Implement missing standard A2UI components to achieve full compatibility with A2UI Composer specification.
+
+**Reference**: [A2UI Composer](https://a2ui-composer.ag-ui.com/components), [JSON Comparison](JSON_COMPARISON_ANALYSIS.md)
+
+### Priority Components (Required for A2UI Compatibility)
+
+| Component | Priority | A2UI Spec | Effort |
+|-----------|----------|-----------|--------|
+| **Modal** | 🔴 High | Required | 4-6h |
+| **Slider** | 🟠 Medium | Required | 3-4h |
+| **DateTimeInput** | 🟠 Medium | Required | 4-6h |
+
+### Optional Components (Future Enhancement)
+
+| Component | Priority | A2UI Spec | Effort |
+|-----------|----------|-----------|--------|
+| **Charts** | 🟡 Low | Optional | 8-12h |
+| **Video** | 🟡 Low | Optional | 6-8h |
+| **AudioPlayer** | 🟡 Low | Optional | 4-6h |
+| **MultipleChoice** | 🟡 Low | Optional | 3-4h |
+
+### Tasks - Phase 1 (High Priority)
+
+- [ ] Create Modal/Dialog component with dismissible support
+- [ ] Implement Slider component with steps and range
+- [ ] Create DateTimeInput component (date + time modes)
+- [ ] Update JSON_COMPARISON_ANALYSIS.md with implementation status
+- [ ] Write component tests for all 3 components
+- [ ] Verify compatibility with A2UI Composer examples
+
+### Tasks - Phase 2 (Optional)
+
+- [ ] Implement Chart components (bar, line, pie)
+- [ ] Create Video player component
+- [ ] Create AudioPlayer component
+- [ ] Implement MultipleChoice component
+
+### Files to Create/Modify
+
+**Phase 1 (Required)**:
+- `app/src/main/java/com/a2ui/renderer/components/Modal.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/components/Slider.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/components/DateTimeInput.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/components/ModalTest.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/components/SliderTest.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/components/DateTimeInputTest.kt` - NEW
+
+**Phase 2 (Optional)**:
+- `app/src/main/java/com/a2ui/renderer/components/Charts.kt` - NEW
+- `app/src/main/java/com/a2ui/renderer/components/MediaPlayer.kt` - NEW
+- `app/src/test/java/com/a2ui/renderer/components/AdvancedComponentsTest.kt` - NEW
+
+### A2UI-Compatible Component Specifications
+
+**Modal** (matches A2UI Composer):
+```json
+{
+  "type": "Modal",
+  "properties": {
+    "title": {"literalString": "Confirm"},
+    "content": {"literalString": "Are you sure?"},
+    "actions": ["confirm", "cancel"],
+    "dismissible": true
+  },
+  "action": {
+    "event": "confirm",
+    "context": {
+      "onConfirm": "submit_form",
+      "onCancel": "close_modal"
+    }
+  }
+}
+```
+
+**Slider** (matches A2UI Composer):
+```json
+{
+  "type": "Slider",
+  "properties": {
+    "value": 50,
+    "min": 0,
+    "max": 100,
+    "steps": 10,
+    "label": {"literalString": "Volume"},
+    "showValue": true
+  },
+  "action": {
+    "event": "change",
+    "context": {
+      "dataBinding": "$.settings.volume"
+    }
+  }
+}
+```
+
+**DateTimeInput** (matches A2UI Composer):
+```json
+{
+  "type": "DateTimeInput",
+  "properties": {
+    "mode": "date",
+    "format": "yyyy-MM-dd",
+    "minDate": "2024-01-01",
+    "maxDate": "2025-12-31",
+    "label": {"literalString": "Select Date"}
+  },
+  "validation": {
+    "required": true
+  }
+}
+```
+
+### Implementation Notes
+
+**Modal Component**:
+- Use AlertDialog for Android
+- Support custom content via child component
+- Support multiple action buttons
+- Animate enter/exit (fade + scale)
+- Handle back button press
+
+**Slider Component**:
+- Use Slider from Material3
+- Support continuous and stepped values
+- Show value label (optional)
+- Support custom colors (active/inactive tracks)
+- Handle touch gestures smoothly
+
+**DateTimeInput Component**:
+- Use Material DatePicker/TimePicker
+- Support date, time, and dateTime modes
+- Respect min/max date constraints
+- Format display according to locale
+- Support text input alternative
+
+### Success Criteria
+
+**Phase 1 (Required)**:
+- [ ] Modal component implemented and tested
+- [ ] Slider component implemented and tested
+- [ ] DateTimeInput component implemented and tested
+- [ ] All components match A2UI Composer spec
+- [ ] All components have unit tests
+- [ ] JSON examples work as documented
+- [ ] Accessibility support (content descriptions, keyboard nav)
+- [ ] Theme integration (colors, typography)
+
+**Phase 2 (Optional)**:
+- [ ] Chart components (bar, line, pie)
+- [ ] Video/Audio players
+- [ ] MultipleChoice component
+
+### A2UI Compatibility Checklist
+
+After implementation, verify:
+- [ ] Components render correctly in A2UI Composer
+- [ ] JSON structure matches Composer examples
+- [ ] All props from Composer spec supported
+- [ ] Actions and events work correctly
+- [ ] Validation works as expected
+- [ ] Cross-platform compatible (iOS-ready structure)
+
+### Estimated Effort
+
+**Phase 1 (Required)**:
+- Modal implementation: 4-6 hours
+- Slider implementation: 3-4 hours
+- DateTimeInput implementation: 4-6 hours
+- Testing: 3-4 hours
+- **Total Phase 1**: 14-20 hours
+
+**Phase 2 (Optional)**:
+- Charts: 8-12 hours
+- Media players: 10-14 hours
+- MultipleChoice: 3-4 hours
+- **Total Phase 2**: 21-30 hours
+
+**Total Iteration 16**: 35-50 hours (Phase 1: 14-20h, Phase 2: 21-30h)
+
+---
+
+## Analysis Summary
 

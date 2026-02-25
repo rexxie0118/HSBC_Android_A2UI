@@ -178,7 +178,11 @@ data class ComponentProperties(
     val indentEnd: Int? = null,
     val dataBinding: ListDataBinding? = null,
     val childrenTemplate: ChildrenTemplate? = null,
-    val elevation: Int? = null
+    val elevation: Int? = null,
+    // Dropdown properties
+    val options: List<Map<String, Any>>? = null,
+    val placeholder: TextValue? = null,
+    val displayMode: String? = null
 )
 
 data class ChildrenTemplate(

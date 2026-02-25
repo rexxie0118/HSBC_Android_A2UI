@@ -7,6 +7,10 @@ import java.io.InputStream
 import com.a2ui.renderer.data.DataProvider
 import com.a2ui.renderer.data.PreferencesManager
 import com.a2ui.renderer.bridge.BuiltinFunctions
+import com.a2ui.renderer.offline.CacheManager
+import com.a2ui.renderer.offline.MessageQueue
+import com.a2ui.renderer.offline.SyncManager
+import com.a2ui.renderer.network.NetworkStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -140,6 +144,12 @@ object ConfigManager {
     private var uiConfig: UIConfig = UIConfig()
     private var preferencesManager: PreferencesManager? = null
     
+    // Offline support
+    private var cacheManager: CacheManager? = null
+    private var messageQueue: MessageQueue? = null
+    private var syncManager: SyncManager? = null
+    private var networkStatus: NetworkStatus? = null
+    
     private lateinit var context: Context
     private var currentTheme: Theme? = null
     private val _themeFlow = MutableStateFlow<Theme?>(null)
@@ -148,6 +158,19 @@ object ConfigManager {
     fun init(context: Context) {
         this.context = context.applicationContext
         preferencesManager = PreferencesManager(context)
+        
+        // Initialize offline support
+        cacheManager = CacheManager(context)
+        messageQueue = MessageQueue(context)
+        networkStatus = NetworkStatus(context)
+        networkStatus?.startMonitoring()
+        
+        syncManager = SyncManager(cacheManager!!, messageQueue!!)
+        
+        // Monitor network status for auto-sync (simplified for now)
+        val isOnline = networkStatus?.checkNetworkStatus() ?: true
+        syncManager?.setOnlineStatus(isOnline)
+        
         BuiltinFunctions.registerAll()
         loadAllConfigs()
     }
@@ -175,6 +198,7 @@ object ConfigManager {
         val pages = mutableMapOf<String, PageConfig>()
         val allComponents = mutableMapOf<String, ComponentConfig>()
         
+        // Load banking journey
         val journeyJson = loadJsonFromRaw("banking_journey")
         val journey = parseJourneyConfig(journeyJson)
         
@@ -182,6 +206,22 @@ object ConfigManager {
         for (pageId in pageIds) {
             val page = loadPageConfig(pageId, journey.id)
             pages[page.id] = page
+        }
+        
+        // Load change name journey
+        try {
+            val changeNameJourneyJson = loadJsonFromRaw("change_name_journey")
+            val changeNameJourney = parseJourneyConfig(changeNameJourneyJson)
+            
+            for (pageId in changeNameJourney.pageIds) {
+                val page = loadPageConfig(pageId, changeNameJourney.id)
+                pages[page.id] = page
+            }
+            
+            journeys[changeNameJourney.id] = changeNameJourney
+        } catch (e: Exception) {
+            android.util.Log.e("ConfigManager", "Change name journey failed: ${e.message}", e)
+            e.printStackTrace()
         }
         
         // Load ALL components from all section files into allComponents map
@@ -192,7 +232,8 @@ object ConfigManager {
                                   "explore_section", "footer_section", 
                                   "bottom_bar_section", "wealth_header_section",
                                   "wealth_total_section", "wealth_tabs_section",
-                                  "account_list_section")
+                                  "account_list_section", "digital_forms_page",
+                                  "change_name_form_page", "acknowledgement_page")
         
         for (file in sectionFiles) {
             val lines = loadJsonlFromRaw(file)

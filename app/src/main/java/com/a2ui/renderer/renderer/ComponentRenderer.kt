@@ -473,7 +473,6 @@ fun renderIcon(
 ) {
     val props = component.properties ?: return
     val iconName = props.icon
-    val usageHint = props.usageHint
     
     val tintColor = props.tintColor?.let { 
         try {
@@ -484,84 +483,44 @@ fun renderIcon(
         }
     }
     
-    val size = when (usageHint) {
-        "action" -> 56.dp
-        "product" -> 44.dp
-        "decorative" -> 28.dp
-        "navigation" -> 28.dp
-        "logo" -> 36.dp
-        else -> 32.dp
-    }
-    
     val painter = IconManager.getIcon(iconName)
     
     if (painter == null) {
-        Box(
-            modifier = Modifier.size(size),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             Text(text = "?", fontSize = 12.sp, color = Color.Gray)
         }
         return
     }
     
-    val showCircle = usageHint == "action" || usageHint == "product"
+    val size = 24.dp
     
-    val isToggleAction = component.action?.event == "toggle_account_list"
-    
-    if (isToggleAction) {
-        val isExpanded = UIStateHolder.accountListExpanded
-        
-        Text(
-            text = if (isExpanded) "▼" else "▶",
-            fontSize = 20.sp,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            color = tintColor ?: Color(0xFF666666),
-            modifier = Modifier
-                .size(56.dp)
-                .clickable(onClick = {
-                        android.util.Log.d("IconClick", "Toggling account list")
-                        UIStateHolder.toggleAccountList()
-                        android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
-                    }
-                )
-                .graphicsLayer {
-                    rotationZ = if (isExpanded) 180f else 0f
-                }
-        )
-        return
-    }
-    
-    val iconModifier = if (component.action != null) {
-        Modifier
-            .size(size)
-            .clickable {
-                onAction(component.action.event, component.action.context)
-            }.clearAndSetSemantics {
-                contentDescription = iconName ?: "Icon button"
-            }
-    } else {
-        Modifier.size(size)
-    }
-    
-    androidx.compose.foundation.Image(
-        painter = painter,
-        contentDescription = iconName,
-        modifier = Modifier
-            .then(
-                if (showCircle) {
-                    Modifier
-                        .size(64.dp)
-                        .background(Color.White, CircleShape)
-                        .padding(8.dp)
-                } else {
-                    Modifier
-                }
+    // Use IconButton for clickable icons
+    if (component.action != null) {
+        IconButton(
+            onClick = {
+                android.util.Log.i("IconClick", "Icon ${component.id} clicked: ${component.action?.event}")
+                onAction(component.action!!.event, component.action!!.context)
+            },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                painter = painter,
+                contentDescription = iconName ?: "Icon",
+                tint = tintColor ?: Color.Unspecified,
+                modifier = Modifier.size(size)
             )
-            .then(iconModifier),
-        colorFilter = if (tintColor != null) androidx.compose.ui.graphics.ColorFilter.tint(tintColor) else null
-    )
+        }
+    } else {
+        Icon(
+            painter = painter,
+            contentDescription = iconName,
+            tint = tintColor ?: Color.Unspecified,
+            modifier = Modifier.size(size)
+        )
+    }
 }
+
+
 
 @Composable
 fun renderCard(
@@ -1150,4 +1109,24 @@ private fun resolveMargin(marginConfig: com.a2ui.renderer.config.MarginConfig?):
         end = ConfigManager.resolveSpacing(marginConfig.end ?: marginConfig.all ?: "0").dp,
         bottom = ConfigManager.resolveSpacing(marginConfig.bottom ?: marginConfig.all ?: "0").dp
     )
+}
+
+/**
+ * Render an entire page with all its sections
+ */
+@Composable
+fun renderPage(
+    page: PageConfig,
+    onAction: (String, Map<String, Any>?) -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+    ) {
+        page.sections.forEach { section ->
+            renderSection(section, onAction, onNavigate)
+        }
+    }
 }

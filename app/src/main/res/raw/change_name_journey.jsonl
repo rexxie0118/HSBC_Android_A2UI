@@ -1,0 +1,1 @@
+{"type":"journey","id":"change_name_journey","name":"Change My ID or Name","version":"1.0","description":"Change ID or name form journey","pages":["digital_forms","change_name_form","acknowledgement"],"defaultPage":"digital_forms","navigation":{"allowBack":true,"allowForward":true,"preserveState":true},"analytics":{"enabled":false,"trackPageViews":false,"trackUserActions":false}}

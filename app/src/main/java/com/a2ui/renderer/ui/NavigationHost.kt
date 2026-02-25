@@ -16,150 +16,107 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.a2ui.renderer.config.ConfigManager
 import com.a2ui.renderer.config.PageConfig
-import com.a2ui.renderer.renderer.PageRenderer
-import com.a2ui.renderer.renderer.A2UIRenderer
+import com.a2ui.renderer.renderer.renderPage
 
 sealed class Screen(val route: String) {
     object Homepage : Screen("homepage")
     object Wealth : Screen("wealth")
+    // Dynamic pages: {journeyId}/{pageId}
 }
 
 @Composable
 fun NavigationHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
-    var isInitialized by remember { mutableStateOf(false) }
     
+    // Initialize ConfigManager
     LaunchedEffect(Unit) {
         ConfigManager.init(context)
-        isInitialized = true
-    }
-    
-    if (!isInitialized) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-        return
     }
     
     NavHost(
         navController = navController,
         startDestination = Screen.Homepage.route
     ) {
+        // Homepage
         composable(Screen.Homepage.route) {
             val page = ConfigManager.getPage("banking_journey", "homepage")
             if (page != null) {
-                ConfigDrivenPage(
+                GenericPage(
                     page = page,
-                    onAction = { event, data ->
-                        when (event) {
-                            "navigate_wealth" -> {
-                                navController.navigate(Screen.Wealth.route)
-                            }
-                        }
-                    },
-                    onNavigate = { route ->
-                        navController.navigate(route)
-                    }
+                    navController = navController,
+                    journeyId = "banking_journey"
                 )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "Page not found")
-                }
             }
         }
         
+        // Wealth Page
         composable(Screen.Wealth.route) {
             val page = ConfigManager.getPage("banking_journey", "wealth_page")
-            if (page != null) {
-                ConfigDrivenPage(
-                    page = page,
-                    onAction = { event, data ->
-                        when (event) {
-                            "navigate_home" -> {
-                                navController.navigate(Screen.Homepage.route) {
-                                    popUpTo(Screen.Wealth.route) { inclusive = true }
-                                }
-                            }
-                        }
-                    },
-                    onNavigate = { route ->
-                        navController.navigate(route)
-                    }
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "Wealth Page - Coming Soon")
-                }
-            }
+            GenericPage(
+                page = page,
+                navController = navController,
+                journeyId = "banking_journey"
+            )
+        }
+        
+        // Dynamic route for ANY journey/page
+        composable("{journeyId}/{pageId}") { backStackEntry ->
+            val journeyId = backStackEntry.arguments?.getString("journeyId") ?: "banking_journey"
+            val pageId = backStackEntry.arguments?.getString("pageId") ?: return@composable
+            
+            android.util.Log.i("NavigationHost", "Getting page: journeyId=$journeyId, pageId=$pageId")
+            val page = ConfigManager.getPage(journeyId, pageId)
+            android.util.Log.i("NavigationHost", "Page result: ${if (page != null) "FOUND ${page.id}" else "NULL"}")
+            GenericPage(
+                page = page,
+                navController = navController,
+                journeyId = journeyId
+            )
         }
     }
 }
 
+/**
+ * Generic page renderer - feature agnostic
+ * Navigation comes from JSON config, not hardcoded
+ */
 @Composable
-fun ConfigDrivenPage(
-    page: PageConfig,
-    onAction: (String, Map<String, Any>?) -> Unit,
-    onNavigate: (String) -> Unit
+fun GenericPage(
+    page: PageConfig?,
+    navController: NavHostController,
+    journeyId: String
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        if (page.statusBar.visible) {
-            StatusBar(
-                style = page.statusBar.style,
-                backgroundColor = ConfigManager.resolveColor(page.statusBar.backgroundColor)
-            )
-        }
-        
-        PageRenderer(
+    if (page != null) {
+        renderPage(
             page = page,
-            onAction = onAction,
-            onNavigate = onNavigate,
-            modifier = Modifier.weight(1f)
+            onAction = { event, data ->
+                when {
+                    event.startsWith("navigate:") -> {
+                        val parts = event.substringAfter("navigate:").split(":")
+                        val (navJourneyId, pageId) = if (parts.size == 2) {
+                            parts[0] to parts[1]
+                        } else {
+                            journeyId to parts[0]
+                        }
+                        navController.navigate("$navJourneyId/$pageId")
+                    }
+                    event == "navigate_back" -> navController.popBackStack()
+                    event == "navigate_home" -> navController.navigate(Screen.Homepage.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            },
+            onNavigate = { route ->
+                navController.navigate(route)
+            }
         )
-        
-        if (page.navigationBar.visible) {
-            NavigationBarView(
-                style = page.navigationBar.style,
-                backgroundColor = ConfigManager.resolveColor(page.navigationBar.backgroundColor)
-            )
+    } else {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "Page not found")
         }
     }
-}
-
-@Composable
-fun StatusBar(
-    style: String,
-    backgroundColor: String
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(24.dp)
-            .background(Color(android.graphics.Color.parseColor(backgroundColor)))
-    )
-}
-
-@Composable
-fun NavigationBarView(
-    style: String,
-    backgroundColor: String
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(Color(android.graphics.Color.parseColor(backgroundColor)))
-    )
 }
