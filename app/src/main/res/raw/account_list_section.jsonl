@@ -1,0 +1,1 @@
+{"type":"component","id":"account_list","type":"AccountList","parent":"hsbc_content","properties":{"padding":{"all":"${spacing.none}"},"dataBinding":{"dataFile":"account_list.json","arrayKey":"accounts","itemLayout":"account_list_item","textField":"name","subtitleField":null,"valueField":"balance","valuePrefix":"currency"}}}

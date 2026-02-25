@@ -34,10 +34,6 @@ import com.a2ui.renderer.config.ListDataBinding
 import com.a2ui.renderer.icon.IconManager
 import com.a2ui.renderer.data.DataProvider
 import com.a2ui.renderer.state.UIStateHolder
-import com.a2ui.renderer.binding.DataModelStore
-import com.a2ui.renderer.rules.ValidationEngine
-import com.a2ui.renderer.rules.DependencyResolver
-import com.a2ui.renderer.modifier.ShadowModifier
 import org.json.JSONObject
 
 @Composable
@@ -111,7 +107,7 @@ fun renderComponent(
         "Icon" -> renderIcon(component, onAction)
         "Card" -> renderCard(component, onAction, onNavigate)
         "Tabs" -> renderTabs(component, onAction, onNavigate)
-        "TextField" -> renderTextField(component, onAction, onNavigate)
+        "TextField" -> renderTextField(component)
         "Divider" -> renderDivider(component)
         "Image" -> renderImage(component)
         "Button" -> renderButton(component, onAction)
@@ -513,18 +509,18 @@ fun renderIcon(
         val isExpanded = UIStateHolder.accountListExpanded
         
         Text(
-            text = if (isExpanded) "▼" else "▶",
+            text = "▶",
             fontSize = 20.sp,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             color = tintColor ?: Color(0xFF666666),
             modifier = Modifier
                 .size(56.dp)
-                .clickable(onClick = {
-                        android.util.Log.d("IconClick", "Toggling account list")
-                        UIStateHolder.toggleAccountList()
-                        android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
-                    }
-                )
+                .clickable {
+                    android.util.Log.d("IconClick", "Toggling account list")
+                    UIStateHolder.toggleAccountList()
+                    android.util.Log.d("IconClick", "After toggle, expanded=${UIStateHolder.accountListExpanded}")
+                }
+                .padding(16.dp)
                 .graphicsLayer {
                     rotationZ = if (isExpanded) 180f else 0f
                 }
@@ -577,21 +573,7 @@ fun renderCard(
     val backgroundColor = props.backgroundColor?.let {
         try { Color(android.graphics.Color.parseColor(ConfigManager.resolveColor(it))) } catch (e: Exception) { Color.White }
     } ?: Color.White
-    
-    // Get elevation from properties or theme
-    val elevationLevel = props.elevation ?: component.theme?.shadow?.toIntOrNull() ?: 1
-    val elevationDp = ShadowModifier.getElevationForLevel(elevationLevel)
-    
-    val cornerRadius = when (props.shape) {
-        "small" -> 4.dp
-        "medium" -> 8.dp
-        "large" -> 12.dp
-        "xl" -> 16.dp
-        "full" -> 9999.dp
-        else -> 16.dp
-    }
-    
-    val shape = RoundedCornerShape(cornerRadius)
+    val elevation = props.weight?.toFloat()?.dp ?: 2.dp
     
     Card(
         modifier = Modifier
@@ -599,8 +581,8 @@ fun renderCard(
             .then(
                 if (marginValues != null) Modifier.padding(marginValues) else Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
             ),
-        elevation = CardDefaults.cardElevation(elevationDp),
-        shape = shape,
+        elevation = CardDefaults.cardElevation(elevation),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
         Column(
@@ -674,67 +656,19 @@ fun renderTabs(
 
 @Composable
 fun renderTextField(
-    component: ComponentConfig,
-    onAction: (String, Map<String, Any>?) -> Unit,
-    onNavigate: (String) -> Unit
+    component: ComponentConfig
 ) {
     val props = component.properties ?: return
     val label = props.label?.literalString ?: ""
-    val dataModel = remember { DataModelStore() }
-    var value by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    
-    // Check visibility from dependencies
-    var isVisible by remember { mutableStateOf(true) }
-    var isEnabled by remember { mutableStateOf(true) }
-    
-    LaunchedEffect(value) {
-        // Update data model
-        dataModel.updateAtPath(component.id, value)
-        
-        // Check dependencies
-        component.dependencies?.let { deps ->
-            val resolved = DependencyResolver.resolveDependencies(listOf(component), dataModel)
-            resolved.updates[component.id]?.let { state ->
-                state.visible?.let { isVisible = it }
-                state.enabled?.let { isEnabled = it }
-            }
-        }
-    }
-    
-    if (!isVisible) return
-    
-    LaunchedEffect(value) {
-        // Validate on value change (debounced)
-        kotlinx.coroutines.delay(300)
-        
-        component.validation?.let { validation ->
-            val errors = ValidationEngine.validateField(component, dataModel)
-            showError = errors.isNotEmpty()
-            errorMessage = errors.firstOrNull()?.message ?: ""
-        }
-    }
     
     OutlinedTextField(
-        value = value,
-        onValueChange = { newValue ->
-            value = newValue
-            // Trigger action if defined
-            component.action?.let { action ->
-                onAction(action.event, action.context)
-            }
-        },
+        value = "",
+        onValueChange = { },
         label = { Text(label) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        enabled = isEnabled,
-        isError = showError,
-        supportingText = if (showError) {
-            { Text(errorMessage, color = MaterialTheme.colorScheme.error) }
-        } else null
+        shape = RoundedCornerShape(20.dp)
     )
 }
 
@@ -1074,6 +1008,29 @@ fun renderAccountList(
                     onAction("list_item_clicked", mapOf("itemId" to it.optString("id"), "itemData" to it.toString()))
                 }
             )
+        }
+    }
+}
+                    .graphicsLayer {
+                        rotationZ = if (expanded) 180f else 0f
+                    }
+            )
+        }
+        
+        // Scrollable list items - only shown when expanded
+        if (expanded) {
+            android.util.Log.d("AccountList", "Rendering items, expanded=$expanded, count=${items.size}")
+            items.forEach { item ->
+                DynamicListItem(
+                    item = item,
+                    dataBinding = dataBinding,
+                    onItemClick = { 
+                        onAction("list_item_clicked", mapOf("itemId" to it.optString("id"), "itemData" to it.toString()))
+                    }
+                )
+            }
+        } else {
+            android.util.Log.d("AccountList", "List is collapsed, not showing items")
         }
     }
 }

@@ -24,6 +24,8 @@ object IconManager {
         "star" to R.drawable.star,
         "more_vert" to R.drawable.more_vert,
         "arrow_right" to R.drawable.arrow_right,
+        "dropdown" to R.drawable.dropdown,
+        "expand_more" to R.drawable.expand_more,
         "chart_up" to R.drawable.chart_up,
         "chart_flag" to R.drawable.chart_flag,
         "currency" to R.drawable.currency,

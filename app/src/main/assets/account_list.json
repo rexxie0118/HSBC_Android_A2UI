@@ -1,0 +1,94 @@
+{
+  "accounts": [
+    {
+      "id": "acc_001",
+      "name": "汇丰 One 投资服务",
+      "balance": "2179.86",
+      "currency": "HKD"
+    },
+    {
+      "id": "acc_002",
+      "name": "港元往来账户",
+      "balance": "100.00",
+      "currency": "HKD"
+    },
+    {
+      "id": "acc_003",
+      "name": "港元储蓄账户",
+      "balance": "2079.86",
+      "currency": "HKD"
+    },
+    {
+      "id": "acc_004",
+      "name": "澳元储蓄账户",
+      "balance": "0.00",
+      "currency": "AUD"
+    },
+    {
+      "id": "acc_005",
+      "name": "美元往来账户",
+      "balance": "5000.00",
+      "currency": "USD"
+    },
+    {
+      "id": "acc_006",
+      "name": "人民币储蓄账户",
+      "balance": "10000.00",
+      "currency": "CNY"
+    },
+    {
+      "id": "acc_007",
+      "name": "欧元往来账户",
+      "balance": "3500.50",
+      "currency": "EUR"
+    },
+    {
+      "id": "acc_008",
+      "name": "英镑储蓄账户",
+      "balance": "1200.75",
+      "currency": "GBP"
+    },
+    {
+      "id": "acc_009",
+      "name": "日元往来账户",
+      "balance": "150000.00",
+      "currency": "JPY"
+    },
+    {
+      "id": "acc_010",
+      "name": "加元储蓄账户",
+      "balance": "8000.25",
+      "currency": "CAD"
+    },
+    {
+      "id": "acc_011",
+      "name": "新加坡元往来账户",
+      "balance": "4500.00",
+      "currency": "SGD"
+    },
+    {
+      "id": "acc_012",
+      "name": "瑞士法郎储蓄账户",
+      "balance": "2200.80",
+      "currency": "CHF"
+    },
+    {
+      "id": "acc_013",
+      "name": "港元投资账户",
+      "balance": "50000.00",
+      "currency": "HKD"
+    },
+    {
+      "id": "acc_014",
+      "name": "美元投资账户",
+      "balance": "25000.00",
+      "currency": "USD"
+    },
+    {
+      "id": "acc_015",
+      "name": "综合理财账户",
+      "balance": "100000.00",
+      "currency": "HKD"
+    }
+  ]
+}

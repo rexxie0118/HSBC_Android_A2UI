@@ -4,6 +4,12 @@ import android.content.Context
 import org.json.JSONObject
 import org.json.JSONArray
 import java.io.InputStream
+import com.a2ui.renderer.data.DataProvider
+import com.a2ui.renderer.data.PreferencesManager
+import com.a2ui.renderer.bridge.BuiltinFunctions
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class GlobalSettings(
     val appId: String,
@@ -132,12 +138,17 @@ object ConfigManager {
     private var themes: Map<String, Theme> = emptyMap()
     private var iconMapping: IconMapping? = null
     private var uiConfig: UIConfig = UIConfig()
+    private var preferencesManager: PreferencesManager? = null
     
     private lateinit var context: Context
     private var currentTheme: Theme? = null
+    private val _themeFlow = MutableStateFlow<Theme?>(null)
+    val themeFlow: StateFlow<Theme?> = _themeFlow.asStateFlow()
     
     fun init(context: Context) {
         this.context = context.applicationContext
+        preferencesManager = PreferencesManager(context)
+        BuiltinFunctions.registerAll()
         loadAllConfigs()
     }
     
@@ -148,8 +159,12 @@ object ConfigManager {
             loadIconMapping()
             loadUIConfig()
             
-            val themeId = globalSettings?.theme?.defaultTheme ?: "banking_light"
-            currentTheme = themes[themeId]
+            // Load saved theme preference, or use default
+            val savedThemeId = preferencesManager?.getSelectedTheme() 
+                ?: globalSettings?.theme?.defaultTheme 
+                ?: "banking_light"
+            currentTheme = themes[savedThemeId]
+            _themeFlow.value = currentTheme
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -176,7 +191,8 @@ object ConfigManager {
                                   "rewards_section", "wellness_section",
                                   "explore_section", "footer_section", 
                                   "bottom_bar_section", "wealth_header_section",
-                                  "wealth_total_section", "wealth_tabs_section")
+                                  "wealth_total_section", "wealth_tabs_section",
+                                  "account_list_section")
         
         for (file in sectionFiles) {
             val lines = loadJsonlFromRaw(file)
@@ -263,7 +279,8 @@ object ConfigManager {
                                   "rewards_section", "wellness_section",
                                   "explore_section", "footer_section", 
                                   "bottom_bar_section", "wealth_header_section",
-                                  "wealth_total_section", "wealth_tabs_section")
+                                  "wealth_total_section", "wealth_tabs_section",
+                                  "account_list_section")
         
         for (file in sectionFiles) {
             val lines = loadJsonlFromRaw(file)
@@ -383,7 +400,32 @@ object ConfigManager {
             tabItems = json.optJSONArray("tabItems")?.let { parseTabItems(it) },
             thickness = if (json.has("thickness")) json.getDouble("thickness") else null,
             indentStart = if (json.has("indentStart")) json.getInt("indentStart") else null,
-            indentEnd = if (json.has("indentEnd")) json.getInt("indentEnd") else null
+            indentEnd = if (json.has("indentEnd")) json.getInt("indentEnd") else null,
+            dataBinding = json.optJSONObject("dataBinding")?.let { parseDataBinding(it) },
+            childrenTemplate = json.optJSONObject("children")?.let { parseChildrenTemplate(it) }
+        )
+    }
+    
+    private fun parseChildrenTemplate(json: JSONObject): ChildrenTemplate? {
+        if (!json.has("template")) return null
+        
+        val templateJson = json.getJSONObject("template")
+        return ChildrenTemplate(
+            dataBinding = templateJson.optString("dataBinding", ""),
+            componentId = templateJson.optString("componentId", ""),
+            itemVar = templateJson.optString("itemVar", null)
+        )
+    }
+    
+    private fun parseDataBinding(json: JSONObject): ListDataBinding {
+        return ListDataBinding(
+            dataFile = json.optString("dataFile", ""),
+            arrayKey = json.optString("arrayKey", "items"),
+            itemLayout = json.optString("itemLayout", "default_list_item"),
+            textField = json.optString("textField", "name"),
+            subtitleField = json.optString("subtitleField", null),
+            valueField = json.optString("valueField", "value"),
+            valuePrefix = json.optString("valuePrefix", null)
         )
     }
     
@@ -683,6 +725,21 @@ object ConfigManager {
     fun getTheme(themeId: String): Theme? = themes[themeId]
     fun getCurrentTheme(): Theme? = currentTheme
     fun getIconMapping(): IconMapping? = iconMapping
+    
+    fun setTheme(themeId: String) {
+        val newTheme = themes[themeId]
+        if (newTheme != null && newTheme !== currentTheme) {
+            currentTheme = newTheme
+            _themeFlow.value = newTheme
+            
+            // Persist theme preference
+            preferencesManager?.setSelectedTheme(themeId)
+            
+            globalSettings?.theme?.copy(currentMode = newTheme.mode)?.let {
+                globalSettings = globalSettings?.copy(theme = it)
+            }
+        }
+    }
     
     fun resolveColor(colorRef: String): String {
         if (colorRef == "transparent") {

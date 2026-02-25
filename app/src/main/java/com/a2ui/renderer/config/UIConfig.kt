@@ -1,5 +1,8 @@
 package com.a2ui.renderer.config
 
+import com.a2ui.renderer.rules.ValidationConfig
+import com.a2ui.renderer.rules.DependencyConfig
+
 data class UIConfig(
     val journeys: Map<String, JourneyConfig> = emptyMap(),
     val pages: Map<String, PageConfig> = emptyMap(),
@@ -22,13 +25,6 @@ data class UIConfig(
     fun getComponent(componentId: String): ComponentConfig? {
         return allComponents[componentId]
     }
-    
-    fun getComponentsForSection(sectionId: String): List<ComponentConfig> {
-        return allComponents.values.filter { 
-            val section = getSection("", sectionId)
-            section?.components?.any { c -> c.id == it.id } ?: false
-        }
-    }
 }
 
 data class JourneyConfig(
@@ -40,11 +36,7 @@ data class JourneyConfig(
     val defaultPageId: String? = null,
     val navigation: NavigationConfig,
     val analytics: AnalyticsConfig
-) {
-    fun getDefaultPage(): String? = defaultPageId
-    
-    val pages: List<String> get() = pageIds
-}
+)
 
 data class PageConfig(
     val id: String,
@@ -59,11 +51,7 @@ data class PageConfig(
     val pullToRefresh: Boolean,
     val refreshOnResume: Boolean,
     val analytics: PageAnalyticsConfig
-) {
-    fun getSection(sectionId: String): SectionConfig? = sections.find { it.id == sectionId }
-    
-    val sectionIds: List<String> get() = sections.map { it.id }
-}
+)
 
 data class SectionConfig(
     val id: String,
@@ -73,11 +61,7 @@ data class SectionConfig(
     val visible: Boolean,
     val theme: SectionThemeConfig,
     val components: List<ComponentConfig> = emptyList()
-) {
-    fun getComponent(componentId: String): ComponentConfig? = components.find { it.id == componentId }
-    
-    val componentIds: List<String> get() = components.map { it.id }
-}
+)
 
 data class ComponentConfig(
     val id: String,
@@ -86,7 +70,20 @@ data class ComponentConfig(
     val properties: ComponentProperties? = null,
     val theme: SectionThemeConfig? = null,
     val action: ActionConfig? = null,
-    val children: List<String> = emptyList()
+    val children: List<String> = emptyList(),
+    val validation: ValidationConfig? = null,
+    val dependencies: DependencyConfig? = null,
+    val visibility: VisibilityConfig? = null
+)
+
+data class ListDataBinding(
+    val dataFile: String,
+    val arrayKey: String,
+    val itemLayout: String,
+    val textField: String,
+    val subtitleField: String?,
+    val valueField: String,
+    val valuePrefix: String? = null
 )
 
 data class NavigationConfig(
@@ -178,7 +175,16 @@ data class ComponentProperties(
     val tabItems: List<TabItem>? = null,
     val thickness: Double? = null,
     val indentStart: Int? = null,
-    val indentEnd: Int? = null
+    val indentEnd: Int? = null,
+    val dataBinding: ListDataBinding? = null,
+    val childrenTemplate: ChildrenTemplate? = null,
+    val elevation: Int? = null
+)
+
+data class ChildrenTemplate(
+    val dataBinding: String,
+    val componentId: String,
+    val itemVar: String? = null
 )
 
 data class InlineComponent(
@@ -199,4 +205,9 @@ data class TabItem(
 data class ActionConfig(
     val event: String,
     val context: Map<String, Any>? = null
+)
+
+data class VisibilityConfig(
+    val rule: String,
+    val transition: String = "fade"
 )
