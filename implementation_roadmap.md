@@ -1,13 +1,115 @@
 # A2UI Renderer - Implementation Roadmap
 
 ## Project Overview
-This document serves as the roadmap for implementing the A2UI Renderer, tracking both completed implementations and remaining functionality to be developed.
+This document serves as the roadmap for implementing the A2UI Renderer, tracking both completed implementations, current implementations with new Form Engine integration, and future enhancements.
 
 ## Project Status
-✅ **Completed Iterations (1-11)**: Core functionality implemented and tested  
-⏳ **Planned Iterations (12, 13, 15-16)**: Enhancement features pending  
+✅ **Completed Traditional Iterations (1-11)**: Core functionality using traditional distributed architecture  
+🔄 **Integrating Form Engine Layer**: Implementing new centralized form engine architecture  
+⏳ **Planned Iterations (12, 13, 15-16)**: Enhancement features with Form Engine integration pending  
 
-## Completed Implementations
+## Form Engine Iteration 0: Core Integration Layer (P0) 
+**Focus**: Implement Form Engine as a centralized layer managing all form state, validation, dependency tracking, caching, and navigation decisions
+
+### Iteration 0.1: Single Source of Truth Layer (P0) ✅ IN PROGRESS
+- **Objective**: Replace fragmented state management across components/pages with centralized Form State in Form Engine
+- **Key Deliverables**:
+  - FormState data class for unified state management across all form elements
+  - Centralized FormStateFlow as the single source of truth  
+  - Migration path for existing DataModelStore to FormState mapping
+  - ComponentRenderer updates to consume from Form Engine rather than distributed helpers
+  - Integration tests validating unified state approach
+
+### Iteration 0.2: Deterministic Evaluation Engine (P1) ✅ PLANNED
+- **Objective**: Implement evaluation engine with deterministic order based on dependency matrix
+- **Key Deliverables**:
+  - Expression evaluator with guaranteed execution order
+  - Dependency tracking system (explicit dependency arrays)
+  - Namespace-based evaluation (validation, binding, visibility, etc.)
+  - Evaluation cache per namespace
+  - Performance benchmarking vs. existing approach
+
+### Iteration 0.3: Incremental Re-Evaluation System (P1) ✅ PLANNED
+- **Objective**: Replace full form re-evaluation with incremental updates based on dependency changes
+- **Key Deliverables**:
+  - Transitive dependency matrix implementation
+  - Incremental evaluation triggers
+  - Change detection system based on dependency tracking
+  - Performance comparison metrics against legacy system
+
+### Iteration 0.4: Centralized Caching System (P1) ✅ PLANNED
+- **Objective**: Implement centralized evaluation cache and dynamic choice management
+- **Key Deliverables**:
+  - Multi-level cache (memory, disk, per-namespace)
+  - Dynamic choice evaluation and caching  
+  - Pre-choice rules with centralized management
+  - Cache invalidation based on dependency tracking
+
+### Iteration 0.5: Consistent Error Management (P1) ✅ PLANNED
+- **Objective**: Standardize error mapping, dirty behavior, and validation
+- **Key Deliverables**:
+  - Centralized ErrorState management
+  - Consistent dirty and touched flag handling
+  - Standardized validation error structure
+  - Error display consistency across all components
+
+### Iteration 0.6: Engine-Controlled Data Updates (P1) ✅ PLANNED
+- **Objective**: Form Engine controls all updates to backing DataModelStore
+- **Key Deliverables**:
+  - DataModelStore adapter that respects Form Engine control
+  - Engine-controlled update paths
+  - Consistent data mapping between Form Engine and DataModelStore
+  - Synchronization mechanisms between layers
+
+### Iteration 0.7: Derived State Management (P2) ✅ PLANNED
+- **Objective**: Centralize management of visibility, enabled/readonly, errors, choices
+- **Key Deliverables**:
+  - Form State derived properties (visibility/enablement)
+  - Standardized error state propagation
+  - Choice and option management from engine
+  - Consistent property mapping across all components
+
+### Iteration 0.8: Dependency Matrix & Evaluation Orchestration (P2) ✅ PLANNED
+- **Objective**: Implement visualization-capable dependency matrix and orchestrated evaluation
+- **Key Deliverables**:
+  - Visualizable dependency matrix 
+  - Directed acyclic graph of form element dependencies
+  - Orchestration engine for evaluation order
+  - Dependency matrix visualization utilities
+
+### Iteration 0.9: Action Dispatch & Navigation Logic (P2) ✅ PLANNED
+- **Objective**: Implement centralized action dispatcher with ViewIdRule-based navigation
+- **Key Deliverables**:
+  - Unified action dispatcher
+  - Form Engine-based navigation decisions
+  - ViewIdRule implementation with conditional logic
+  - Consistent navigation behavior across journeys
+
+### Iteration 0.10: Component Renderer Refactoring (P1) ✅ PLANNED
+- **Objective**: Update ComponentRenderer to consume exclusively from Form Engine state instead of direct config helpers
+- **Key Deliverables**:
+  - ComponentRenderer consumption of Form Engine state
+  - Elimination of direct BindingResolver usage
+  - Form-aware components integrated with Form Engine
+  - Performance regression testing
+
+### Iteration 0.11: Validation Engine Refactoring (P1) ✅ PLANNED
+- **Objective**: Migrate existing ValidationEngine logic into FormEngine orchestration
+- **Key Deliverables**:
+  - Integration of current validation rules into Form Engine
+  - Preservation of existing validation behavior
+  - Performance optimization
+  - Migration path for current validators
+
+### Iteration 0.12: Complete Journey Integration (P1) ✅ PLANNED
+- **Objective**: Full JourneyManager integration with Form Engine for cross-page state management
+- **Key Deliverables**:
+  - JourneyManager coordinating with Form Engine
+  - Cross-page state persistence
+  - Navigation validation rules through Form Engine
+  - Deep-linking state restoration via Form Engine
+
+## Completed Traditional Implementations (Being Migrated to Form Engine)
 
 ### Iteration 1: Theme Integration (P0) ✅
 - **Focus**: Connect theme JSON to Compose MaterialTheme system
@@ -16,6 +118,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - Dynamic color scheme builder from JSON theme data
   - Typography mapping from theme configurations
   - ConfigManager integration with StateFlow
+- **Notes for Migration**: Will integrate theme changes with Form Engine state flow
 - **Files**: `Theme.kt`, `Type.kt`, `ConfigManager.kt`
 
 ### Iteration 2: Runtime Theme Switching (P0) ✅
@@ -26,6 +129,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - ThemePicker Composable component
   - Smooth transition animations
   - SharedPreferences integration
+- **Notes for Migration**: Theme change events can optionally trigger form recalculations
 - **Files**: `PreferencesManager.kt`, `ThemePicker.kt`, `MainActivity.kt`
 
 ### Iteration 3: Data Binding (P1) ✅
@@ -37,6 +141,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - Nested path and array index support
   - Text and color binding resolution
 - **Files**: `DataModelStore.kt`, `BindingResolver.kt`
+- **Notes for Migration**: Data binding logic now managed through Form Engine layer instead of direct resolver
 
 ### Iteration 4: Dynamic Lists (P1) ✅
 - **Focus**: Implement template-based dynamic list rendering
@@ -47,6 +152,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - Array index path support ($.products.0.name)
   - Item-scoped data models for templates
 - **Files**: `ListTemplateRenderer.kt`, `UIConfig.kt`, `ConfigManager.kt`
+- **Notes for Migration**: Dynamic lists now use Form Engine state
 
 ### Iteration 5: Dynamic UI Rules Framework (P1) ✅
 - **Focus**: JSON-driven validation rules, field dependencies, and expressions
@@ -57,6 +163,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - Expression Evaluator for safe expressions
   - Native Function Bridge for custom logic
 - **Files**: `ValidationEngine.kt`, `DependencyResolver.kt`, `ExpressionEvaluator.kt`, `NativeFunctionRegistry.kt`
+- **Notes for Migration**: These engines now orchestrate through Form Engine instead of independently
 
 ### Iteration 6-11: Core Features ✅
 - **Iter 6 (P1)**: Multi-Page Journey Navigation - Dynamic routing with state persistence
@@ -65,12 +172,14 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 - **Iter 9 (P1)**: Security Framework - 8 comprehensive security policies
 - **Iter 10 (P1)**: Performance Optimization - 5 strategies including streaming, diffing, caching
 - **Iter 11 (P1)**: Multi-Domain Models - Event-driven observer pattern with path mapping
+- **Note for Migration**: All now use single source of form truth in Form Engine
 
 ## Current State Summary
-- **Core Features**: Complete (Iterations 1-11)
-- **Enhancement Features**: Planned (Iterations 12, 13, 15-16)
-- **Test Coverage**: 81+ unit tests, 7 UI tests passing
-- **Completed Areas**: Theming, data binding, validation, security, perf
+- **Core Features**: Complete (Iterations 1-11) with migration to Form Engine architecture underway
+- **Form Engine Implementation Status**: Initial integration layer in progress with 12 new planned iterations
+- **Migration Strategy**: Phased approach moving from distributed state to centralized Form Engine
+- **Enhancement Features**: Planned to leverage Form Engine architecture (Iterations 12, 13, 15-16)
+- **Test Coverage**: Form Engine integration will expand unit test coverage to consolidate scattered tests
 
 ## Technical Reference - Dynamic UI Rules Framework
 

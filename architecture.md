@@ -203,13 +203,13 @@ graph TD
 
 ### ConfigManager
 
-**Purpose**: Central configuration loader and state manager
+**Purpose**: Configuration loader and provider (separation of concerns from form engine)
 
 **Responsibilities**:
 - Load JSON configuration from `res/raw/*.jsonl`
-- Manage theme state via `StateFlow<Theme?>`
-- Provide component lookup by ID
+- Provide component lookup by ID and JSON parsing
 - Handle theme persistence via `PreferencesManager`
+- Pass configuration objects to the Form Engine for form-specific handling
 
 **Key Properties**:
 ```kotlin
@@ -217,6 +217,7 @@ object ConfigManager {
     private var themes: Map<String, Theme> = emptyMap()
     private var allComponents: Map<String, ComponentConfig> = emptyMap()
     private var currentTheme: Theme? = null
+    private var journeys: Map<String, JourneyConfig> = emptyMap()
     
     private val _themeFlow = MutableStateFlow<Theme?>(null)
     val themeFlow: StateFlow<Theme?> = _themeFlow.asStateFlow()
@@ -231,8 +232,466 @@ fun init(context: Context)
 fun getCurrentTheme(): Theme?
 fun setTheme(themeId: String)
 fun getComponent(componentId: String): ComponentConfig?
+fun getJourney(journeyId: String): JourneyConfig?
+fun getAllComponents(): Map<String, ComponentConfig>
 fun resolveColor(token: String?): String?
 fun resolveSpacing(token: String?): Dp
+```
+
+---
+
+### FormEngine (NEW)
+
+**Purpose**: Central form state management and orchestration hub
+
+**Responsibilities**:
+- Single source of truth for UI form state across components/pages
+- Manage deterministic evaluation order for form expressions and dependencies
+- Handle incremental re-evaluation using explicit dependency graphs and namespaces
+- Provide centralized evaluation and caching for dynamic choices and pre-choice rules
+- Manage consistent error maps and dirty validation behavior
+- Control data updates backed by DataModelStore
+- Provide derived state maps (visibility, enabled/readonly, errors, choice)
+- Maintain dependency matrix and orchestrate evaluation order
+- Handle action dispatch (including navigation decisions like next View IdRule)
+- Coordinate state flow between pages in a journey
+
+**Key Properties And State Structure**:
+```kotlin
+object FormEngine {
+    // Single source of truth for UI form state
+    private val _formStateFlow = MutableStateFlow<FormState>(FormState.Initial())
+    val formStateFlow: StateFlow<FormState> = _formStateFlow.asStateFlow()
+    
+    // Separate dirty state flow
+    private val _dirtyStateFlow = MutableStateFlow<DirtyState>(DirtyState.Empty())
+    val dirtyStateFlow: StateFlow<DirtyState> = _dirtyStateFlow.asStateFlow()
+    
+    // Explicit error state management
+    private val _errorStateFlow = MutableStateFlow<ErrorState>(ErrorState.Empty())
+    val errorStateFlow: StateFlow<ErrorState> = _errorStateFlow.asStateFlow()
+    
+    // Dependency Matrix - tracks all dependencies between elements
+    private val _dependencyMatrix: DependencyMatrix = DependencyMatrix()
+    
+    // Evaluation caches for different namespaces (validation, binding, visibility, etc)
+    private val evaluationCaches: Map<EvaluationNamespace, EvaluationCache> = createNamespacedCaches()
+    
+    // DataModelStore dependency (engine controls updates)
+    private val _dataModelStore = DataModelStore()
+    
+    // Current active journey/page configuration
+    private var currentJourney: JourneyConfig? = null
+    private var currentPageId: String = ""
+    
+    // Navigation state management
+    private val _navigationState = mutableStateOf(NavigationState.Idle)
+    private val availableTransitions: Map<ViewIdRule, NavigationAction> = mutableMapOf()
+}
+```
+
+**Form State Management (Single Source of Truth)**:
+```kotlin
+data class FormState(
+    val values: Map<String, Any?>,           // All form values (key path -> value)
+    val dirtyFlags: Map<String, Boolean>,    // Track dirty state per value
+    val touchedFlags: Map<String, Boolean>,  // Track touch state per value
+    val visitedOrder: List<String>,          // Order in which values were visited
+    val lastUpdateTimestamp: Map<String, Long> // Last modification timestamps
+) {
+    companion object {
+        fun Initial(): FormState = FormState(
+            values = emptyMap(),
+            dirtyFlags = emptyMap(),
+            touchedFlags = emptyMap(),
+            visitedOrder = emptyList(),
+            lastUpdateTimestamp = emptyMap()
+        )
+    }
+    
+    fun withValueAt(path: String, value: Any?): FormState {
+        val currentTime = System.currentTimeMillis()
+        return copy(
+            values = values + (path to value),
+            lastUpdateTimestamp = lastUpdateTimestamp + (path to currentTime),
+            dirtyFlags = dirtyFlags + (path to true) // Mark as dirty when updated
+        )
+    }
+}
+```
+
+**Dependency Matrix**:
+```kotlin
+class DependencyMatrix {
+    // Track which elements affect others (e.g., dependency expressions)
+    private val affectingDependencies: Map<String, Set<String>> = mutableMapOf()
+    
+    // Track which elements are affected by others
+    private val affectedDependencies: Map<String, Set<String>> = mutableMapOf()
+    
+    fun addDependency(depender: String, dependency: String, type: DependencyType) {
+        val dependencies = affectingDependencies.getOrDefault(depender, emptySet())
+        affectingDependencies[depender] = dependencies + dependency
+        
+        val affects = affectedDependencies.getOrDefault(dependency, emptySet())
+        affectedDependencies[dependency] = affects + depender
+    }
+    
+    fun getDirectDependers(elementPath: String): Set<String> {
+        return affectingDependencies[elementPath] ?: emptySet()
+    }
+    
+    fun getAffectedElements(elementPath: String): Set<String> {
+        return affectedDependencies[elementPath] ?: emptySet()
+    }
+    
+    fun getTransitiveAffectedElements(elementPath: String): Set<String> {
+        // Use recursive traversal with cycle detection
+        return traverseAffectedTransitively(elementPath, mutableSetOf())
+    }
+    
+    enum class DependencyType {
+        VALIDATION, VISIBILITY, ENABLEMENT, VALUE_DEPENDENCY
+    }
+}
+```
+
+**Evaluation Engine (for deterministic evaluation)**:
+```kotlin
+class EvaluationEngine(private val formEngine: FormEngine) {
+    
+    // Ensure deterministic evaluation order
+    private val evaluationOrder: Map<EvaluationType, List<String>> = mutableMapOf()
+    
+    // Namespaces for different evaluation purposes (validation, ui props, etc)
+    enum class EvaluationNamespace {
+        VALIDATION,
+        VISIBILITY,
+        ENABLEMENT, 
+        BOUND_VALUES,
+        DYNAMIC_OPTIONS
+    }
+    
+    // Cache for results of expensive evaluations
+    private val evaluationCaches: Map<EvaluationNamespace, EvaluationCache> = mutableMapOf(
+        EvaluationNamespace.VALIDATION to EvaluationCache(ttlMs = 5000), // 5 second ttl
+        EvaluationNamespace.VISIBILITY to EvaluationCache(ttlMs = 1000), // 1 second ttl
+        EvaluationNamespace.ENABLEMENT to EvaluationCache(ttlMs = 1000), // 1 second ttl
+        EvaluationNamespace.BOUND_VALUES to EvaluationCache(ttlMs = 3000), // 3 second ttl
+        EvaluationNamespace.DYNAMIC_OPTIONS to EvaluationCache(ttlMs = 10000) // 10 second ttl
+    )
+    
+    fun evaluateExpression(
+        expression: String, 
+        namespace: EvaluationNamespace, 
+        contextPath: String
+    ): Any? {
+        val cache = evaluationCaches[namespace] ?: return null
+        
+        // Try cache first
+        cache.get(expression, contextPath)?.let { return it }
+        
+        // Then evaluate
+        val result = actuallyEvaluate(expression, namespace, contextPath)
+        
+        // Cache the result
+        if (namespace in listOf(EvaluationNamespace.BOUND_VALUES, EvaluationNamespace.DYNAMIC_OPTIONS)) {
+            cache.put(expression, contextPath, result, namespace)
+        }
+        
+        return result
+    }
+    
+    fun evaluateInIncrementalOrder(
+        changes: Map<String, Any?>,
+        changedNamespace: EvaluationNamespace
+    ) {
+        // Get dependency-ordered evaluation sequence
+        val orderedEvaluationKeys = formEngine.dependencyMatrix
+            .getTransitiveAffectedElementsBulk(changes.keys)
+            .sortedBy { evaluationOrder[changedNamespace]?.indexOf(it) ?: Int.MAX_VALUE }
+        
+        // Evaluate in deterministic order
+        orderedEvaluationKeys.forEach { key ->
+            if (changes.containsKey(key)) {
+                // Re-evaluate dependencies of changed element
+                evaluateElementDependencies(key, changedNamespace)
+            } else {
+                // Check if this element depends on the changed value
+                evaluateIfDependsOn(changes, key, changedNamespace)
+            }
+        }
+    }
+}
+```
+
+**State Orchestrations: Validation and Error Behavior**:
+```kotlin
+class ValidationStateOrchestrator(
+    private val formEngine: FormEngine,
+    private val evaluationEngine: EvaluationEngine
+) {
+    
+    fun runValidationOnPath(path: String) {
+        val elementConfig = getElementConfig(path)
+        
+        // Collect validation rules for the specific path
+        val validationRules = elementConfig.validationRules
+        
+        // Run each validation rule and accumulate results
+        val errors = mutableListOf<ValidationError>()
+        
+        validationRules.forEach { rule ->
+            val evaluationResult = evaluationEngine.evaluateExpression(
+                rule.expression,
+                EvaluationNamespace.VALIDATION,
+                path
+            )
+            
+            if (!isRuleFulfilled(rule, evaluationResult)) {
+                errors.add(ValidationError(
+                    path = path,
+                    ruleType = rule.type,
+                    message = resolveErrorTemplate(rule.errorTemplate),
+                    severity = rule.severity
+                ))
+            }
+        }
+        
+        // Update error state for the form engine
+        formEngine._errorStateFlow.value = formEngine._errorStateFlow.value
+            .withValidationErrors(path, errors)
+            
+        // Update dirty state
+        formEngine._dirtyStateFlow.value = formEngine._dirtyStateFlow.value
+            .markFieldValidated(path)
+    }
+    
+    fun runValidationOnAllChangedFields(): List<ValidationError> {
+        val result = mutableListOf<ValidationError>()
+        
+        // Only validate fields that have changed since last validation
+        val changedSinceLastValidation = getChangedFieldSinceLastValidation()
+        
+        changedSinceLastValidation.forEach { path ->
+            val errors = runValidationOnPath(path)
+            result.addAll(errors)
+        }
+        
+        return result
+    }
+}
+```
+
+**Action Dispatcher (Including Navigation Decisions)**:
+```kotlin
+class ActionDispatcher(
+    private val formEngine: FormEngine,
+    private val journeyManager: JourneyManager
+) {
+    
+    fun dispatchAction(action: FormAction): ActionResult {
+        return when (action) {
+            is UpdateValueAction -> {
+                handleValueUpdate(action)
+            }
+            is ValidateAction -> {
+                handleValidationRequest(action)
+            }
+            is NavigationAction -> {
+                handleNavigationRequest(action)
+            }
+            is SubmitAction -> {
+                handleSubmitRequest(action)
+            }
+            is ResetAction -> {
+                handleResetRequest(action)
+            }
+        }
+    }
+    
+    private fun handleNavigationRequest(action: NavigationAction): ActionResult {
+        val destinationId = when(action.rule) {
+            is ViewIdRule.Direct -> action.rule.destinationId
+            is ViewIdRule.Conditional -> {
+                val evaluationResult = evaluationEngine.evaluateExpression(
+                    action.rule.conditionExpression,
+                    EvaluationNamespace.VALIDATION,
+                    "navigation_condition_${System.nanoTime()}"
+                )
+                
+                action.rule.getDestinationBasedOn(evaluationResult)
+            }
+            is ViewIdRule.Dynamic -> {
+                // Look up next View ID based on current form state
+                findNextViewIdFromCurrentState(action.rule.logic)
+            }
+        }
+        
+        return journeyManager.navigateToPage(destinationId)
+    }
+    
+    // Additional navigation utilities that consider form state
+    fun shouldAllowNavigationTo(viewId: String): Boolean {
+        val requiredFields = getRequiredFieldConfigsForView(viewId)
+        val currentFormState = formEngine.formStateFlow.value
+        
+        // Check if all required fields in the current view are satisfied
+        return requiredFields.all { field -> 
+            currentFormState.dirtyFlags[field.id] == true ||
+            formEngine.errorStateFlow.value.hasNoErrors(field.id)
+        }
+    }
+}
+```
+
+**Integration with Existing DataModelStore**:
+```kotlin
+class FormDataModelAdapter(private val formEngine: FormEngine) {
+    
+    // Engine controls updates to DataModelStore
+    fun updateDataModelWithEngineState() {
+        val formState = formEngine.formStateFlow.value
+        val dataMap = mapFormStateToData(formState.values)
+        
+        // Send updates to DataModelStore from engine-controlled data
+        formEngine._dataModelStore.setData(dataMap)
+    }
+    
+    // Sync data model changes back to form engine state (when needed)
+    fun listenToDataModelChanges(syncCallback: (DataModelStore) -> Unit) {
+        // Observe DataModelStore flow and sync back to form engine
+        formEngine._dataModelStore.data.value.observe { newData ->
+            // Handle changes from DataModelStore back to form engine
+            // This could come from external sources
+            syncFormStateWithNewData(newData)
+        }
+    }
+    
+    private fun mapFormStateToData(formStateValues: Map<String, Any?>): Map<String, Any> {
+        val result = mutableMapOf<String, Any>()
+        formStateValues.forEach { (path, value) ->
+            // Convert form engine path structure to DataModelStore format
+            val dataPath = convertToDataModelPath(path)
+            result[dataPath] = value ?: "null_value_sentinel_$dataPath"
+        }
+        return result
+    }
+}
+```
+
+**Form State Interface Methods**:
+```kotlin
+object FormEngine {
+    
+    // Primary public methods for interaction
+    suspend fun updateValue(elementId: String, newValue: Any?, source: ChangeSource) {
+        _formStateFlow.value = _formStateFlow.value.withValueAt(elementId, newValue)
+        markDirty(elementId)
+        
+        // Trigger incremental evaluation of dependent elements
+        triggerDependencyEvaluation(setOf(elementId))
+    }
+    
+    fun setInitialFormState(initial: FormState) {
+        _formStateFlow.value = initial
+        _dirtyStateFlow.value = DirtyState.Initial()
+    
+        // Seed dependency matrix from initial config
+        seedDependenciesFromInitialConfig()
+    }
+    
+    fun validateAll(): ValidationResult {
+        val fieldConfigs = getCurrentFieldConfigs()
+        
+        fieldConfigs.forEach { config ->
+            validateField(config.id)
+        }
+        
+        return ValidationResult(
+            hasErrors = _errorStateFlow.value.hasAnyErrors(),
+            errors = _errorStateFlow.value.getAllErrors(),
+            fieldCount = fieldConfigs.size
+        )
+    }
+    
+    fun validateField(elementId: String): ValidationSubresult {
+        return validationStateOrchestrator.runValidationOnPath(elementId)
+    }
+    
+    fun canNavigateTo(destinationId: String): Boolean {
+        return actionDispatcher.shouldAllowNavigationTo(destinationId)
+    }
+    
+    // Get current state snapshots
+    fun getCurrentValueAtPath(path: String): Any? {
+        return _formStateFlow.value.values[path]
+    }
+    
+    fun getLastErrorForPath(path: String): ValidationError? {
+        return _errorStateFlow.value.getMostRecentError(path)
+    }
+    
+    fun getDirtyFields(): Set<String> {
+        return _formStateFlow.value.dirtyFlags.filter { it.value }.keys
+    }
+        
+    // Lifecycle management for integration with JourneyManager
+    fun startJourney(journey: JourneyConfig) {
+        currentJourney = journey
+        resetFormState()
+    }
+    
+    fun leaveCurrentPage() {
+        // Preserve form state but mark fields as inactive
+        preserveStateForReturn()
+    }
+    
+    fun restoreStateForPage(pageId: String) {
+        restoreStateFromJourneyHistory(pageId)
+    }
+}
+```
+
+---
+
+### A2UIRendererTheme
+
+**Purpose**: Theme provider composable that observes `themeFlow` and provides MaterialTheme
+
+**Implementation**:
+```kotlin
+@Composable
+fun A2UIRendererTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val currentTheme = ConfigManager.themeFlow.collectAsState(initial = null).value
+    
+    val colorScheme = if (currentTheme?.mode == "dark") {
+        darkColorScheme(
+            primary = Color(0xFFFF5252),
+            secondary = Color(0xFF64B5F6),
+            background = Color(0xFF121212),
+            surface = Color(0xFF1E1E1E),
+        )
+    } else {
+        lightColorScheme(
+            primary = Color(0xFFD32F2F),
+            secondary = Color(0xFF1976D2),
+            background = Color(0xFFF5F5F5),
+            surface = Color(0xFFFFFFFF),
+        )
+    }
+    
+    val typography = currentTheme?.typography?.toMaterialTypography() ?: Typography()
+    
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = typography,
+        content = content
+    )
+}
 ```
 
 ---
@@ -282,22 +741,180 @@ fun A2UIRendererTheme(
 
 **Location**: `app/src/main/java/com/a2ui/renderer/renderer/ComponentRenderer.kt`
 
-**Purpose**: Render components based on JSON configuration
+**Purpose**: Render components based on JSON configuration, observing state from the Form Engine rather than directly from config scattered in helper functions
 
 **Supported Components**:
 - Content: Text, Image, Icon
 - Layout: Column, Row, Card, Tabs
 - Interactive: Button, TextField, CheckBox
+- Specialized Form: Validation-aware components that consume Form Engine state
 - Utility: Divider, Spacer, Box
 
-**Render Function Signature**:
+**Render Function Signature** (updated to consume from Form Engine):
 ```kotlin
 @Composable
 fun renderComponent(
     component: ComponentConfig,
-    onAction: (String, Map<String, Any>?) -> Unit,
-    onNavigate: (String) -> Unit
-)
+    // Formerly consumed directly from DataModelStore and helpers
+    // NOW consumes from FormEngine state:
+    formState: StateFlow<FormState> = FormEngine.formStateFlow,
+    dirtyState: StateFlow<DirtyState> = FormEngine.dirtyStateFlow,
+    errorState: StateFlow<ErrorState> = FormEngine.errorStateFlow
+) {
+    // Get component-specific state from the engine's single source of truth
+    val componentId = component.id
+    val currentValue by formState.map { it.values[componentId] }.collectAsState()
+    val isDirty by dirtyState.map { it.isDirty(componentId) }.collectAsState()
+    val hasErrors by errorState.map { it.getErrors(componentId) }.collectAsState()
+    
+    // Render based on unified form state
+    when (component.type) {
+        "TextField" -> TextFieldRenderer.render(component, currentValue, isDirty, hasErrors)
+        "Button" -> ButtonRenderer.render(component, currentValue, hasErrors)
+        "Text" -> TextRenderer.render(component, currentValue)
+        // ... other components
+    }
+}
+```
+
+**Rendering Components with Form Engine Dependency**:
+```kotlin
+@Composable
+fun renderInteractiveComponent(
+    component: ComponentConfig,
+    onFormAction: (FormAction) -> Unit
+) {
+    val componentValue by FormEngine.getValue(component.id)
+    val componentError by FormEngine.getError(component.id)
+    val componentVisibility by FormEngine.getDerivedState(component.id, DerivedStateType.VISIBLE)
+    val componentEnabled by FormEngine.getDerivedState(component.id, DerivedStateType.ENABLED)
+    
+    // Render with unified state management
+    BasicComponentRenderer(
+        component = component,
+        value = componentValue,
+        error = componentError,
+        visibility = componentVisibility,
+        enabled = componentEnabled,
+        onValueChange = { newValue ->
+            onFormAction(FormAction.UpdateValue(component.id, newValue))
+        },
+        onAction = { action ->
+            onFormAction(FormAction.DispatchAction(component.id, action))
+        }
+    ) 
+}
+
+// Specialized renderers that respond to FormEngine state
+@Composable
+fun FormAwareTextField(
+    component: ComponentConfig,
+    onFormAction: (FormAction) -> Unit
+) {
+    val value by FormEngine.getValue(component.id)
+    val error by FormEngine.getError(component.id)
+    val isDirty by FormEngine.getDirtyState(component.id)
+    val isValid = error == null  // No validation error exists
+    
+    TextField(
+        value = value?.toString() ?: "",
+        isError = !isValid,
+        onValueChange = { newValue ->
+            // Dispatch update to FormEngine
+            onFormAction(FormAction.UpdateValue(component.id, newValue))
+        },
+        supportingText = if (!isValid && error != null) {
+            { Text(error.message, color = MaterialTheme.colorScheme.error) }
+        } else null
+    )
+}
+```
+
+**Form State Observation**:
+```kotlin
+@Composable
+fun ObserveFormState(
+    componentId: String,
+    renderFunc: @Composable (FormElementState) -> Unit
+) {
+    val currentValue by FormEngine.getFormValue(componentId).collectAsState()
+    val errors by FormEngine.getFormError(componentId).collectAsState()
+    val dirty by FormEngine.getFormDirty(componentId).collectAsState()
+    val visibility by FormEngine.getDerivedVisibility(componentId).collectAsState()
+    val enabled by FormEngine.getDerivedEnabled(componentId).collectAsState()
+    
+    val elementState = remember(currentValue, errors, dirty, visibility, enabled) {
+        FormElementState(
+            value = currentValue,
+            errors = errors,
+            dirty = dirty,
+            visible = visibility,
+            enabled = enabled
+        )
+    }
+    
+    renderFunc(elementState)
+}
+```
+
+**Legacy Helper Replacements** (previously scattered throughout UI):
+```kotlin
+object LegacyHelperReplacements {
+    // OLD: Individual component logic scattered everywhere 
+    // NEW: Centralized in FormEngine
+    
+    // OLD
+    /* 
+    @Composable
+    fun SomeOldComponent() {
+        val currentData = DataModelStore.data.collectAsState().value
+        val currentValue = currentData.getAtPath(component.config.dataPath)
+        // Manual logic to check validation and enablement...
+    }
+    */
+    
+    // NEW: ComponentRenderers now consume from FormEngine
+    fun getValueForComponent(componentId: String): State<Any?> {
+        return FormEngine.getValue(componentId)
+    }
+    
+    fun getValidationErrors(componentId: String): List<ValidationError> {
+        return FormEngine.getFormError(componentId).value
+    }
+    
+    fun getVisibilityState(componentId: String): Boolean {
+        return FormEngine.getDerivedVisibility(componentId).value
+    }
+    
+    fun getEnablementState(componentId: String): Boolean {
+        return FormEngine.getDerivedEnabled(componentId).value
+    }
+}
+```
+
+---
+
+### Form Engine Integration
+
+**Purpose**: A middle-layer responsible for orchestrating form-specific behaviors, validation, dependency tracking, and navigation decisions
+
+**Component Interaction Flow** (now updated):
+```
+┌──────────────────┐     ┌─────────────────┐     ┌─────────────────────┐
+│    Component     │────▶│ FormEngine Layer│────▶│  Actual Component   │
+│   (renderer)     │     │ (orchestration) │     │   Interaction       │
+└──────────────────┘     └─────────────────┘     └─────────────────────┘
+        │                         │                       │
+        ▼                         ▼                       ▼
+┌──────────────────┐     ┌─────────────────┐     ┌─────────────────────┐
+│UI Event Triggered│────▶│State Transition │────▶│State/Effects Update │
+└──────────────────┘     └─────────────────┘     └─────────────────────┘
+        │                         │                       │
+        ▼                         ▼                       ▼
+┌──────────────────┐     ┌─────────────────┐     ┌─────────────────────┐
+│ FormEngine acts  │────▶│ Update Multiple │────▶│ Components/UX       │
+│ as single source │     │ Dependent comps.│     │ reflect FormEngine  │
+└──────────────────┘     └─────────────────┘     └─────────────────────┘
 ```
 
 ---
@@ -422,7 +1039,169 @@ if (errors.isNotEmpty()) {
 
 ## Data Flow Patterns
 
-### Theme Switching Flow
+### Form Engine-Centric Data Flow (NEW ARCHITECTURE)
+
+The NEW data flow with Form Engine layer incorporates a centralized approach to managing form-specific state, validation, and effects:
+`
+┌─────────────────────────────────────────────────────────────────┐
+│                    JSON Configuration Files                      │
+│         themes.jsonl │ global_settings.jsonl │ sections/*.jsonl │
+└─────────────────────────────────┬───────────────────────────────┘
+                                  │ Load at init              
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        ConfigManager                            │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ • Loads configurations                                  │   │
+│  │ • Provides component configurations                     │   │
+│  │ • Does NOT manage form state directly                   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────┬───────────────────────────────┘
+                                  │ Passes configs to
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         FormEngine                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ SINGLE SOURCE OF TRUTH:                               │   │
+│  │ • Form values state                                     │   │
+│  │ • Derived states                                        │   │
+│  │ • Error states                                          │   │
+│  │ • Dirty states                                          │   │
+│  │ • Dependency tracking                                  │   │
+│  │ • Validation/evaluation cache                          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────┬───────────────────────────────┘
+                                  │ Provides unified form states
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Component Renderers                          │
+│  • Consume formEngine states via observation                   │
+│  • Dispatch events to FormEngine                               │
+│  • Render UI based on unified form state                      │
+└─────────────────────────────────────────────────────────────────┘
+`
+
+### Theme Switching Flow (MODIFIED)
+
+```
+User clicks theme toggle
+         ↓
+ThemeToggleButton.onClick()
+         ↓
+ConfigManager.setTheme("banking_dark")
+         ↓
+├─► Update currentTheme
+├─► preferencesManager.setSelectedTheme
+└─► themeFlow emits new Theme  ◄── Emits!
+         ↓
+A2UIRendererTheme collects change
+         ↓
+Recompose with new ColorScheme
+         ↓
+All composables using MaterialTheme rebuild
+         ↓
+UI updated with dark theme colors
+```
+
+### Form Engine Driven Data Binding Flow (NEW)
+
+The NEW architecture moves data binding from scattered state update to centralized Form Engine management:
+```
+Agent provides data JSON
+         ↓
+FormEngine.setInitialFormState(data)
+         ↓
+├─► formState.value = newData (single source truth)
+└─► Emits via formStateFlow  
+         ↓
+Component accesses state from FormEngine
+         ↓
+FormEngine.resolve("$path.to.value")
+         ↓
+├─► Parse path: ["path", "to", "value"]  
+├─► Traverse in FormEngine's state
+└─► Return: "Widget"
+         ↓
+Text component displays "Widget" based on unified form state
+```
+
+**Implementation**:
+```kotlin
+@Composable
+fun renderText(component: ComponentConfig) {
+    val textValue = component.properties?.text ?: return
+    // NEW: Uses FormEngine for consistent state access instead of BindingResolver directly
+    val resolvedText by FormEngine.getValue(component.id)
+        .map { FormEngine.resolveBindedValue(textValue, it) }
+        .collectAsState(initial = "")
+    
+    Text(text = resolvedText)
+}
+```
+
+### Form Engine Driven Validation Flow (NEW)
+
+The NEW validation flow now occurs via centralized Form Engine:
+```
+User modifies form element
+         ↓
+Component dispatches to FormEngine
+         ↓
+FormEngine.updateValue(elementId, newValue)
+         ↓
+├─► Mark value as dirty/touched
+├─► Trigger dependency evaluation  
+├─► Update derived states (visibility, etc)
+└─► Queue validation checks    (single source truth)
+         ↓
+FormEngine validates according to dependency rules
+         ↓
+├─► Check required
+├─► Check rules (pattern, length, etc.)
+└─► Check cross-field dependencies
+         ↓
+Update FormEngine's error/dirty state
+         ↓
+UI components react to unified state (no scattered validation helpers)
+```
+
+### List Template Flow with Form Engine Integration (MODIFIED)
+
+```
+Component needs to render a template with form integration
+         ↓
+ListTemplateRenderer.RenderList()  - NOW observes FormEngine state
+         ↓
+├─► FormEngine.getListData("$path.to.elements") → List<FormElement>
+├─► For each item:
+│   ├─► Render with item-specific data from FormEngine
+│   ├─► Attach FormEngine-backed bindings for child components
+│   └─► Dispatch FormActions from children to FormEngine
+└─► LazyColumn displays items reflecting FormEngine state
+```
+
+**Implementation**:
+```kotlin
+@Composable
+fun FormEngineAwareRenderList(
+    template: ChildrenTemplate,
+    component: ComponentConfig
+) {
+    // NEW: Observes form state rather than scattered binding logic
+    val dataList by FormEngine.getListData(template.dataBinding).collectAsState()
+    
+    LazyColumn {
+        itemsIndexed(dataList) { index, item ->
+            // Child components access state from FormEngine
+            val itemFormState = rememberSubFormState(item, component, index)
+            RenderListComponent(
+                component = component,
+                formState = itemFormState
+            )
+        }
+    }
+}
+```
 
 ```
 User clicks theme toggle
@@ -702,14 +1481,223 @@ fun ValidatedTextField(component: ComponentConfig) {
 
 ---
 
-## Multi-Page Journey Architecture
+## Multi-Page Journey Architecture - With Form Engine
 
-### Journey Configuration Flow
+### Journey Configuration Flow with Form Engine Integration
 
-The A2UI Renderer implements multi-page journey navigation where each journey and its constituent pages are defined in JSON configuration. The journey structure allows for hierarchical navigation between related page sections while maintaining state flow across page transitions.
+The A2UI Renderer implements multi-page journey navigation where each journey and its constituent pages are defined in JSON configuration, but now with centralized state management via the NEW Form Engine layer. The journey structure allows for hierarchical navigation between related page sections while maintaining state flow across page transitions via the Form Engine:
 
-#### Journey Definition Structure
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    JSON Configuration Files                      │
+│  themes.jsonl │ global_settings.jsonl │ sections/*.jsonl        │
+└────────────────────┬────────────────────────────────────────────┘
+                     │ Load at init
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      ConfigManager (Singleton)                   │
+│  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │  
+│  │ themes: Map    │  │ uiConfig: UIConfig│  │ preferences     │ │
+│  │ allComponents  │  │ globalSettings   │  │ PreferencesMgr  │ │
+│  └────────────────┘  └──────────────────┘  └─────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                     │ Passes configurations to Form Engine
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    FormEngine (NEW CORE ORCH)                   │
+│  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │
+│  │ formState:     │  │ dependencyGraph:│  │ evaluationEngine│ │ 
+│  │StateFlow<Form- │  │     Dependency-  │  │ ExpressionEval- │ │
+│  │State>         │  │     Graph        │  │ uator          │ │
+│  └────────────────┘  └──────────────────┘  └─────────────────┘ │
+│  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │  
+│  │ validationEng- │  │ action-dispatcher│  │ cache-system   │ │
+│  │ine: Validation-│  │ (navigation     │  │ centralized    │ │  
+│  │Engine          │  │ decisions)      │  │                │ │
+│  └────────────────┘  └──────────────────┘  └─────────────────┘ │
+└────────────────────┬────────────────────────────────────────────┘
+                     │ Provides unified state for rendering
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   Form-Aware Composable Components              │
+└─────────────────────────────────────────────────────────────────┘
+```
 
+### NEW High-Level Architecture with Form Engine
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              DATA FLOW                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                        CONFIGURATION                              │ │
+│  │  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐   │ │
+│  │  │ themes: Map    │  │ uiConfig: UIConfig│  │ preferences     │   │ │
+│  │  │ allComponents  │  │ globalSettings   │  │ PreferencesMgr  │   │ │
+│  │  └────────────────┘  └──────────────────┘  └─────────────────┘   │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                              │ Load & Initialization                     │
+│                              ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                          CONFIG MANAGER                           │ │
+│  │  Load components, themes, preferences                             │ │
+│  │   Publish StateFlows and configuration objects                     │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                              │                                           │
+│                              ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                           FORM ENGINE                             │ │
+│  │  ┌─────────────────────────────────────────────────────────────┐  │ │
+│  │  │ • FormState (Single source of truth)                       │  │ │
+│  │  │ • DependencyGraph (element relations)                      │  │ │
+│  │  │ • EvaluationEngine (deterministic order)                   │  │ │
+│  │  │ • ValidationManager (central validation)                   │  │ │
+│  │  │ • ActionDispatcher (navigation decisions)                  │  │ │
+│  │  │ • CacheManager (evaluation caching)                        │  │ │
+│  │  └─────────────────────────────────────────────────────────────┘  │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                              │                                           │
+│                              ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                       COMPONEND RENDERERS                         │ │
+│  │  • Access FormEngine state via StateFlows                        │ │
+│  │  • Render based on unified FormEngine state                     │ │
+│  │  • Dispatch events to FormEngine                                 │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                              │                                           │
+│                              ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                    DATA BINDING LAYER                           │ │
+│  │  • FormEngine manages binding via centralized system            │ │
+│  │  • DataModelStore adapter (controlled by FormEngine)           │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow Patterns with Form Engine Integration
+
+```
+New User Action Flow:
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   User Input    │────▶│ Form Engine     │────▶│ Component       │
+│   Component     │     │ Processes       │     │ Updates         │
+│   (e.g. TF)     │     │ State Changes   │     │ Render          │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Value sent to   │────▶│ FormEngine      │────▶│ FormEngine      │
+│ FormEngine      │     │ Updates State   │     │ Propagates      │
+│ via updateValue │     │ in centralized  │     │ State to        │
+│ method          │     │ FormState       │     │ Subscribers     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ FormEngine      │────▶│ Evaluation and  │────▶│ Affected        │
+│ Triggers        │     │ Validation      │     │ Components      │
+│ Dependency and  │     │ Processing      │     │ Re-render       │
+│ Re-evaluation   │     │ (Caching, etc.) │     │ w/New State     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+### FormEngine Integration in ComponentRenderer
+
+The NEW architecture features Component Renderer now consuming from FormEngine state rather than scattered helpers:
+
+```
+BEFORE (Fragmented Approach):
+ComponentRenderer 
+├─▶ Direct BindingResolver calls
+├─▶ Scattered state management
+├─▶ Independent validation per component
+└─▶ Multiple sources of truth
+
+AFTER (Centralized with FormEngine):
+ComponentRenderer (Form-Aware)
+├─▶ Consumes FormEngine.stateFlow
+├─▶ Dispatches events to FormEngine
+├─▶ Reactively renders from unified state
+└─▶ Single source of truth for all form state
+```
+
+```
+
+### NEW Multi-Page Architecture Pattern with Form Engine
+`
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                             Journey Configuration Layer                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ JourneyConfig with page list and navigation rules                                             │
+│ JourneyManager for page navigation orchestration - delegates form state to FormEngine         │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                         │
+               ┌─────────────────────────┼─────────────────────────────────────────────────────┐
+               │                         │                                                     │
+     ┌─────────▼─────────┐       ┌───────▼────────┐            ┌─────────▼─────────┐           │
+     │   PAGE 1:         │       │   PAGE 2:      │            │   PAGE N:         │           │
+     │   Homepage        │       │   Wealth       │            │   Settings        │           │
+     │   Configuration   │       │   Configuration│            │   Configuration   │           │
+     │   (JSON Config)   │       │   (JSON Config)│            │   (JSON Config)   │           │
+     └───────────────────┘       └────────────────┘            └───────────────────┘           │
+                │                         │                                                     │
+                │                         │                                                     │
+     ┌──────────▼────────┐    ┌───────────▼─────────┐    ┌──────────▼──────────────────┐      │
+     │   JourneyData     │    │   JourneyData       │    │   JourneyData              │      │
+     │   Form State      │    │   Form State        │    │   Form State               │      │
+     │   Propagation     │    │   Propagation       │    │   Propagation              │      │
+     │   (Delegated to   │    │   (Delegated to     │    │   (Delegated to            │      │
+     │   FormEngine)     │    │   FormEngine)       │    │   FormEngine)              │      │
+     └───────────────────┘    └─────────────────────┘    └───────────────────────────┘      │
+                │                         │                                                     │
+                │                         │                                                     │
+                └─────────────────────────┼─────────────────────────────────────────────────────┘
+                                         │
+                                 ┌───────▼────────┐
+                                 │   FormEngine   │
+                                 │   (Central     │
+                                 │    Form State) │
+                                 │   Management   │
+                                 └────────────────┘
+                                         │
+               ┌─────────────────────────┼─────────────────────────────────────────────────────┐
+               │                         │                                                     │
+     ┌─────────▼─────────┐       ┌───────▼────────┐            ┌────────────▼──────────┐       │
+     │   VALIDATION      │◄──────┤   VALIDATION   │◄───────────┤   VALIDATION          │       │
+     │   ENGINE          │       │   ENGINE       │            │   ENGINE              │       │
+     │   (Delegates to   │       │   (Delegates   │            │   (Delegates to       │       │
+     │   FormEngine)     │       │   to FormEngine)│            │   FormEngine)         │       │
+     └───────────────────┘       └────────────────┘            └───────────────────────┘       │
+                │                         │                                                     │
+                │                         │                                                     │
+     ┌─────────▼─────────┐       ┌─────────▼────────┐           ┌───────────▼───────────┐       │
+     │   DATA BINDING    │◄──────┤   DATA BINDING   │◄──────────┤   DATA BINDING        │       │
+     │   (Delegates to   │       │   (Delegates to  │           │   (Delegates to       │       │
+     │   FormEngine)     │       │   FormEngine)    │           │   FormEngine)         │       │
+     └───────────────────┘       └──────────────────┘           └───────────────────────┘       │
+                                    ┌───────────────────────────────────────────────────────────┘
+
+`
+
+### NEW Multi-Page Journey Configuration Flow with Form Engine Integration
+
+The A2UI Renderer implements multi-page journey navigation where each journey and its constituent pages are defined in JSON configuration. However, with the NEW Form Engine integration, all form-related interactions go through the centralized Form Engine layer:
+
+```
+┌─────────────────────────────────────────────────┐    ┌─────────────────────────┐    ┌──────────────────────────┐
+│     Journey Config JSON Files                  │────▶│   ConfigManager         │────▶│   Form Engine            │
+│   (journeys/*.json)                            │    │  (initialization)      │    │   (central orchestration)│
+│  • Defines pages, navigation rules             │    │  • Loads all configs    │    │  • Single source of     │
+│  • Validation rules                            │    │  • Initializes Form    │    │    truth for state      │
+│  • Page dependencies                           │    │    Engine              │    │  • Coordination of      │
+│                                               │    │  • Provides engine     │    │    evaluation, etc.     │
+└─────────────────────────────────────────────────┘    │    for components      │    └──────────────────────────┘
+                                                   │                         │
+                                                   └─────────────────────────┘
+```
+
+#### JourneyDefinition Structure (Unchanged, but processed by Form Engine)
 ```
 {
   "type": "journey",
@@ -728,1044 +1716,89 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
     "allowForward": true,
     "preserveState": true,
     "transition": "slide",
-  "analytics": {
-    "trackPageViews": true
+    "analytics": {
+      "trackPageViews": true
+    }
   }
 }
 ```
 
-### Mermaid Diagram
-
-```mermaid
-graph TB
-    subgraph "Journey Configuration Layer"
-        A[JourneyConfig<br/>with page list and navigation]
-        JourneyManager[JourneyManager<br/>central orchestrator<br/>multi-page state]
-    end
-    
-    A --> JourneyManager
-    
-    subgraph "Pages"
-        subgraph "Page 1: Homepage"
-            Config1[Configuration<br/>JSON Config]
-            DVBF1[DataModel Validation<br/>Binding Flow]
-        end
-        
-        subgraph "Page 2: Wealth"
-            Config2[Configuration<br/>JSON Config]
-            DVBF2[DataModel Validation<br/>Binding Flow]
-        end
-        
-        subgraph "Page N: Settings"
-            ConfigN[Configuration<br/>JSON Config]
-            DVBFN[DataModel Validation<br/>Binding Flow]
-        end
-    end
-    
-    DVBF1 --> DataModelStore[(Data Model Store<br/>Shared)]
-    DVBF2 --> DataModelStore
-    DVBFN --> DataModelStore
-    
-    subgraph "Validation & Binding Systems"
-        VE1[VALIDATION ENGINE<br/>FOR PAGE 1 BINDINGS]
-        DB1[DATA BINDING<br/>FOR PAGE 1<br/>WITH CONTEXT]
-        VE2[VALIDATION ENGINE<br/>FOR PAGE 2 BINDINGS]
-        DB2[DATA BINDING<br/>FOR PAGE 2<br/>WITH CONTEXT]
-        VEN[VALIDATION ENGINE<br/>FOR PAGE N BINDINGS]
-        DBN[DATA BINDING<br/>FOR PAGE N<br/>WITH CONTEXT]
-    end
-    
-    Config1 --> VE1
-    Config2 --> VE2
-    ConfigN --> VEN
-    
-    VE1 --> DB1
-    VE2 --> DB2
-    VEN --> DBN
-    
-    style JourneyManager fill:#e1f5fe
-    style DataModelStore fill:#f3e5f5
-    style VE1 fill:#fff3e0
-    style VE2 fill:#fff3e0
-    style VEN fill:#fff3e0
-    style DB1 fill:#e8f5e8
-    style DB2 fill:#e8f5e8
-    style DBN fill:#e8f5e8
-```
-
-### Multi-Page Architecture Pattern
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    Journey Configuration Layer                                │
-├─────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ JourneyConfig object with page list and navigation rules                                       │
-│ JourneyManager central orchestrator for multi-page state                                       │
-└─────────────────────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-              ┌──────────────────────────┼─────────────────────────────────────────────────────┐
-              │                        │                                                     │
-    ┌─────────▼─────────┐      ┌────────▼────────┐            ┌─────────▼─────────┐           │
-    │   PAGE 1:         │      │   PAGE 2:       │            │   PAGE N:         │           │
-    │   Homepage        │      │   Wealth        │            │   Settings        │           │
-    │   Configuration   │      │   Configuration │            │   Configuration   │           │
-    │   (JSON Config)   │      │   (JSON Config) │            │   (JSON Config)   │           │
-    └───────────────────┘      └─────────────────┘            └───────────────────┘           │
-               │                        │                                                     │
-               │                        │                                                     │
-    ┌──────────▼────────┐    ┌──────────▼────────┐            ┌──────────▼─────────────────┐ │
-    │   DataModel       │    │   DataModel       │            │   DataModel             │ │
-    │   Validation      │    │   Validation      │            │   Validation            │ │
-    │   Binding         │    │   Binding         │            │   Binding               │ │
-    │   Flow            │    │   Flow            │            │   Flow                  │ │
-    └───────────────────┘    └───────────────────┘            └─────────────────────────┘ │
-               │                        │                                                     │
-               │                        │                                                     │
-               └────────────────────────┼─────────────────────────────────────────────────────┘
-                                        │
-                                ┌───────▼───────┐
-                                │ DataModel     │
-                                │ Store         │
-                                │ (Shared)      │
-                                └───────────────┘
-                                        │
-              ┌─────────────────────────┼─────────────────────────────────────────────────────┐
-              │                         │                                                 │
-    ┌─────────▼─────────┐     ┌─────────▼────────┐            ┌────────────▼──────────┐   │
-    │   VALIDATION      │◄────┤   VALIDATION     │◄───────────┤   VALIDATION          │   │
-    │   ENGINE FOR      │     │   ENGINE FOR     │            │   ENGINE FOR          │   │
-    │   PAGE 1 BINDINGS │     │   PAGE 2 BINDINGS│            │   PAGE N BINDINGS     │   │
-    └───────────────────┘     └────────────────┘            └───────────────────────┘   │
-               │                         │                                                 │
-               │                         │                                                 │
-    ┌─────────▼─────────┐     ┌─────────▼────────┐            ┌───────────▼───────────┐   │
-    │   DATA BINDING    │     │   DATA BINDING   │            │   DATA BINDING        │   │
-    │   FOR PAGE 1      │     │   FOR PAGE 2     │            │   FOR PAGE N          │   │
-    │   WITH CONTEXT    │     │   WITH CONTEXT   │            │   WITH CONTEXT        │   │
-    └───────────────────┘     └──────────────────┘            └───────────────────────┘   │
-                                   ┌─────────────────────────────────────────────────────────┘
-        │
-        ▼
-ValidationEngine.validateField()
-        │
-├─► Check required
-├─► Check rules (pattern, length, etc.)
-└─► Check custom validation
-        ↓
-Update UI state (showError, errorMessage)
-```
-
-### Validation Processing Mermaid Version
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant TF as TextField
-    participant VC as onValueChange
-    participant DMS as DataModelStore
-    participant DB as Debounce
-    participant VE as ValidationEngine
-    participant US as Update UI state
-    
-    U->>TF: Types in TextField
-    TF->>VC: Trigger
-    VC->>DMS: Update DataModelStore
-    DMS->>DB: Debounce (300ms)
-    DB->>VE: validateField(component, dataModel)
-    VE->>VE: Check required
-    VE->>VE: Check rules (pattern, length etc)
-    VE->>VE: Check custom validation
-    VE->>US: Update showError, errorMessage
-    US->>TF: Show validation status
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    Journey Configuration Layer                                │
-├─────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ JourneyConfig object with page list and navigation rules                                       │
-│ JourneyManager central orchestrator for multi-page state                                       │
-└─────────────────────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-              ┌──────────────────────────┼──────────────────────────────────┐
-              │                        │                                  │
-    ┌─────────▼─────────┐      ┌────────▼────────┐            ┌─────────▼─────────┐
-    │   PAGE 1:         │      │   PAGE 2:       │            │   PAGE N:         │
-    │   Homepage        │      │   Wealth        │            │   Settings        │
-    │   Configuration   │      │   Configuration │            │   Configuration   │
-    │   (JSON Config)   │      │   (JSON Config) │            │   (JSON Config)   │
-    └───────────────────┘      └─────────────────┘            └───────────────────┘
-              │                        │                                  │
-              │                        │                                  │
-    ┌─────┬───▼──────────┐    ┌─────────▼─────────┐            ┌─────────▼──────────┐
-    │     │ DataModel    │    │     DataModel     │            │     DataModel      │
-    │     │ Validation   │    │     Validation    │            │     Validation     │
-    │     │ Binding      │    │     Binding       │            │     Binding        │
-    │     │ Flow         │    │     Flow          │            │     Flow           │
-    └─────┼──────────────┘    └───────────────────┘            └────────────────────┘
-          │                         │                                     │
-          │                         │                                     │
-          └─────────────────────────┼─────────────────────────────────────┘
-                                    │
-                                ┌───▼───┐
-                                │ Data  │
-                                │ Model │
-                                │ Store │
-                                │ (Shared)                                │
-                                └───────┘
-                                     │
-              ┌──────────────────────┼─────────────────────────────────────┐
-              │                      │                                     │
-    ┌─────────▼─────────┐    ┌───────▼────────┐            ┌────────────▼──────────┐
-    │   VALIDATION      │◄───┤   VALIDATION   │◄───────────┤   VALIDATION          │
-    │   ENGINE FOR      │    │   ENGINE FOR   │            │   ENGINE FOR          │
-    │   PAGE 1 BINDINGS │    │   PAGE 2 BINDINGS │          │   PAGE N BINDINGS     │
-    └───────────────────┘    └────────────────┘            └───────────────────────┘
-              │                        │                                  │
-              │                        │                                  │
-    ┌─────────▼─────────┐    ┌─────────▼────────┐            ┌───────────▼───────────┐
-    │   DATA BINDING    │    │   DATA BINDING   │            │   DATA BINDING        │
-    │   FOR PAGE 1      │    │   FOR PAGE 2     │            │   FOR PAGE N          │
-    │   WITH CONTEXT    │    │   WITH CONTEXT   │            │   WITH CONTEXT        │
-    └───────────────────┘    └──────────────────┘            └───────────────────────┘
-```
-
-### Data Flow Pattern for Multi-Page Journey Validations and Bindings
-
-The following diagram illustrates the complete flow from data change through validation and binding resolution across multiple pages:
-
-```
-┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
-│     User enters data in TextField               │───▶│          JourneyManager Manages context         │───▶│         Current Page Specific Data Binding        │
-└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                                                     
-┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
-│    DataModelStore Updates State (Page/Journey) │───▶│    Validation Engine with Journey Context       │───▶│    Field Validation (Cross-Page Dependencies)   │
-└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                                                     
-┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
-│       StateFlow Emits Change                    │───▶│    Compose Rebuild Based on Validation        │───▶│    Binding Resolver Processes Data Binding      │
-│                                                 │    │       Result & Data Context State             │    │      (Page/Journey Priority)                  │
-└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                                                     
-┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
-│           UI State Changed                      │    │    UI Rebuild with Current Context              │    │    Validation Error Displayed w/Solution Hint   │
-│                                                 │    │                                                 │    │                                                 │
-└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-```
-
-### Multi-Pages Journey Data, Validation, and Binding Flow Mermaid Version
-
-```mermaid
-graph LR
-    subgraph "User Entry & Initialization"
-        UE[User enters data in TextField]
-        JM[JourneyManager manages context]
-    end
-    
-    subgraph "Data Processing"
-        DMS[DataModelStore Updates State Page/Journey]
-        VE[Validation Engine with Journey Context]
-        FV[Field Validation Cross-Page Dependencies]
-    end
-    
-    subgraph "UI Processing" 
-        SF[StateFlow Emits Change]
-        CR[Compose Rebuild Based on Validation Result & Data Context State]
-        BR[Binding Resolver Processes Data Binding Page/Journey Priority]
-    end
-    
-    subgraph "UI Presentation"
-        USC[UI State Changed] 
-        UR[UI Rebuild with Current Context]
-        VER[Validation Error Displayed w/Solution Hint]
-    end
-    
-    UE --> JM
-    UE --> DMS
-    JM --> VE
-    DMS --> VE 
-    VE --> FV
-    DMS --> SF
-    VE --> CR 
-    SF --> CR
-    FV --> BR
-    CR --> BR
-    US --> USC
-    CR --> UR
-    BR --> VER
-    
-    style JM fill:#e1f5fe
-    style DMS fill:#fff3e0  
-    style VE fill:#e8f5e8
-    style BR fill:#f2e5f5
-    style UR fill:#f5e5f3
-    style VER fill:#e5f5ed
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            Journey Configuration Layer                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│ JourneyConfig object with page list and navigation rules                │
-│ JourneyManager central orchestrator for multi-page state                │
-└─────────────────────────────────────────────────────────────────────────┘
-        │                        │                       │                  
-        │                        │                       │                  
-└────────────────────────┼───────────────────────┘                  
-                         │                                          
-                     ┌───▼───┐                                      
-                     │ Data  │                                      
-                     │ Model │                                      
-                     │ Store │                                      
-                     │ (Shared)                                     
-                     └───────┘
-                          │                                         
-        ┌─────────────────┼───────────────────────┐                  
-        │                 │                       │                  
-┌───────▼──────┐    ┌─────▼──────┐        ┌──────▼───────┐    
-│ VALIDATION   │◄───┤VALIDATION  │◄───────┤VALIDATION    │    
-│ ENGINE FOR   │    │ENGINE FOR  │        │ENGINE FOR    │    
-│ PAGE 1 BINDINGS│  │PAGE 2 BINDINGS│      │PAGE N BINDINGS│    
-└──────────────┘    └────────────┘       └──────────────┘    
-        │                 │                       │                  
-        │                 │                       │                  
-┌───────▼──────┐    ┌─────▼──────┐        ┌──────▼───────┐    
-│ DATA BINDING │    │DATA BINDING│        │DATA BINDING   │    
-│ FOR PAGE 1   │    │FOR PAGE 2  │        │FOR PAGE N     │    
-│ WITH CONTEXT │    │WITH CONTEXT│        │WITH CONTEXT   │    
-└──────────────┘    └────────────┘       └──────────────┘
-
-```
-
-### Complete Multi-Page Journey Architecture Mermaid Version
-
-```mermaid
-graph TB
-    subgraph "Journey Configuration"
-        JC[JourneyConfig<br/>page list and navigation rules]
-        JM[JourneyManager<br/>central orchestrator<br/>multi-page state]
-    end
-
-    subgraph "Pages"
-        subgraph "Page 1: Homepage"
-            P1C[Configuration<br/>JSON Config]
-            P1DV[DataModel Validation<br/>Binding Flow]
-        end
-        
-        subgraph "Page 2: Wealth"  
-            P2C[Configuration<br/>JSON Config]
-            P2DV[DataModel Validation<br/>Binding Flow]
-        end
-        
-        subgraph "Page N: Settings"
-            PNC[Configuration<br/>JSON Config] 
-            PNDV[DataModel Validation<br/>Binding Flow]
-        end
-    end
-
-    subgraph "Shared Components"
-        DMS[(Data Model Store<br/>Shared)]
-        SUB[Subscribers]
-    end
-    
-    subgraph "Validation & Data Binding Systems"
-        V1[VALIDATION ENGINE<br/>FOR PAGE 1 BINDINGS]
-        DB1[DATA BINDING<br/>FOR PAGE 1<br/>WITH CONTEXT]
-        V2[VALIDATION ENGINE<br/>FOR PAGE 2 BINDINGS] 
-        DB2[DATA BINDING<br/>FOR PAGE 2<br/>WITH CONTEXT]
-        VN[VALIDATION ENGINE<br/>FOR PAGE N BINDINGS]
-        DBN[DATA BINDING<br/>FOR PAGE N<br/>WITH CONTEXT]
-    end
-    
-    JC --> JM
-    P1DV --> DMS
-    P2DV --> DMS
-    PNDV --> DMS
-    DMS --> SUB
-    
-    P1C --> V1
-    P2C --> V2  
-    PNC --> VN
-    V1 --> DB1
-    V2 --> DB2
-    VN --> DBN
-    
-    style JM fill:#e1f5fe
-    style DMS fill:#f3e5f5
-    style V1 fill:#fff3e0
-    style V2 fill:#fff3e0
-    style VN fill:#fff3e0
-    style DB1 fill:#e8f5e8
-    style DB2 fill:#e8f5e8
-    style DBN fill:#e8f5e8
-```
-
-### Component Architecture with Validation and Data Binding
-
-Here is how data models, validation, and binding work across multiple pages in a journey:
-
-#### DataModelStore with Journey Context
+### NEW Integration: ConfigManager with FormEngine Bridge
 
 ```kotlin
-class JourneyDataModelStore {
-    private val _journeyData = MutableStateFlow<Map<String, Any>>(emptyMap())
-    private val _currentPageData = MutableStateFlow<Map<String, Any>>(emptyMap())
+object ConfigManager {
+    private var themes: Map<String, Theme> = emptyMap()
+    private var allComponents: Map<String, ComponentConfig> = emptyMap()
+    private var currentTheme: Theme? = null
+    private var allJourneys: Map<String, JourneyConfig> = emptyMap()
     
-    // Global journey data flow accessible across all pages
-    val journeyData: StateFlow<Map<String, Any>> = _journeyData.asStateFlow()
+    private val _themeFlow = MutableStateFlow<Theme?>(null)
+    val themeFlow: StateFlow<Theme?> = _themeFlow.asStateFlow()
     
-    // Current page-specific data flow for isolated state
-    val currentPageData: StateFlow<Map<String, Any>> = _currentPageData.asStateFlow()
+    private var preferencesManager: PreferencesManager? = null
     
-    /**
-     * Set data for entire journey (persisted across pages)
-     */
-    fun setJourneyData(newData: Map<String, Any>) {
-        _journeyData.value = _journeyData.value + newData
+    // NEW: Initialize centralized FormEngine as part of application setup
+    private var formEngine: FormEngine? = null
+    
+    fun init(context: Context) {
+        // Initialize all configuration as before
+        loadThemes(context)
+        loadComponentConfigs(context)
+        loadJourneyConfigs(context)
+        
+        // NEW: Initialize central FormEngine for all subsequent form interactions
+        formEngine = FormEngine() // Centralized form engine
+        
+        // Load initial data into FormEngine if needed
+        initializeFormEngineWithData()
     }
     
-    /**
-     * Set data specific to current page (isolated to page lifecycle)
-     */
-    fun setCurrentPageData(newData: Map<String, Any>) {
-        _currentPageData.value = _currentPageData.value + newData
-    }
-    
-    /**
-     * Resolves path across both journey and current page contexts
-     * Priority: currentPage -> journeyData
-     */
-    fun resolveAtContextPath(path: String): Any? {
-        // First look in current page context
-        getAtPath(path, _currentPageData.value)?.let { return it }
+    // NEW: Helper to initialize FormEngine with initial configuration data
+    private fun initializeFormEngineWithData() {
+        val initialData = mutableMapOf<String, Any>()
         
-        // Then fall back to journey-wide context
-        return getAtPath(path, _journeyData.value)
-    }
-    
-    /**
-     * Updates data at path in current page context
-     * Falls back to journey data if not present in page context
-     */
-    fun updatePath(path: String, value: Any) {
-        val target = if (_currentPageData.value.containsKey(extractRootKey(path))) {
-            _currentPageData.value + mapOf(extractRootKey(path) to traverseAndSetValue(path, value))
-        } else {
-            _journeyData.value + mapOf(extractRootKey(path) to traverseAndSetValue(path, value))
-        }
-        
-        if (_currentPageData.value.containsKey(extractRootKey(path))) {
-            _currentPageData.value = target
-        } else {
-            _journeyData.value = target
-        }
-    }
-}
-```
-
-### Journey-Based Page Navigation and State Management
-
-#### JourneyManager Implementation
-
-```kotlin
-object JourneyManager {
-    private val _currentPage = MutableStateFlow<String>("")
-    private val _journeyHistory = mutableStateListOf<String>()
-    private val _pageStack = ArrayDeque<String>()
-    private val _pageStates = mutableMapOf<String, PageState>()
-    private val _dataModelStore = JourneyDataModelStore()
-    
-    valcurrentPage: StateFlow<String> = _currentPage.asStateFlow()
-    
-    fun navigateToPage(
-        pageId: String,
-        data: Map<String, Any>? = null,
-        animateTransition: Boolean = true
-    ) {
-        // Save current page state before navigating
-        persistCurrentPageState()
-        
-        // Store navigation metadata
-        _pageStack.addLast(pageId)
-        _journeyHistory.add(pageId)
-        
-        // Load page-specific data bindings
-        data?.let { _dataModelStore.setCurrentPageData(it) }
-        
-        // Update current page
-        _currentPage.value = pageId
-        
-        // Track analytics if configured
-        Analytics.trackPageView(pageId)
-        
-        // Clear previous validation errors for new page context
-        ValidationEngine.clearErrorsForPage(pageId)
-    }
-    
-    fun navigateBack() {
-        if (_pageStack.size <= 1) return
-        if (_journeyHistory.size <= 1) return
-        
-        // Save current state
-        persistCurrentPageState()
-        
-        // Remove current page from stack
-        val leavingpageId = _pageStack.removeLast()
-        _journeyHistory.removeAt(_journeyHistory.size - 1)
-        
-        // Navigate to previous page
-        val previousPage = _pageStack.last()
-        setCurrentPage(previousPage)
-        
-        // Restore page state if available
-        restorePageState(previousPage)
-        
-        Analytics.trackBackNavigation(leavingpageId)
-    }
-    
-    private fun setCurrentPage(pageId: String) {
-        _currentPage.value = pageId
-    }
-    
-    fun getCurrentDataModel(): JourneyDataModelStore = _dataModelStore
-    
-    fun persistCurrentPageState() {
-        _currentPage.value.takeIf { it.isNotEmpty() }?.let { currentPageId ->
-            _pageStates[currentPageId] = PageState(
-                pageId = currentPageId,
-                data = _dataModelStore.currentPageData.value,
-                validationErrors = ValidationEngine.getPageErrors(currentPageId),
-                timestamp = System.currentTimeMillis()
-            )
-        }
-    }
-    
-    fun restorePageState(pageId: String) {
-        _pageStates[pageId]?.let { pageState ->
-            _dataModelStore.setCurrentPageData(pageState.data)
-            ValidationEngine.restorePageValidationErrors(pageId, pageState.validationErrors)
-        }
-    }
-    
-    fun clearPageHistory() {
-        _pageStack.clear()
-        _journeyHistory.clear()
-        _pageStates.clear()
-    }
-}
-```
-
-### Page Configuration Structure with Validation & Binding
-
-#### Page Configuration Schema
-
-```json
-{
-  "id": "account_overview", 
-  "pageId": "account_overview_page",
-  "journeyId": "banking_journey",
-  "sections": [
-    {
-      "id": "top_nav",
-      "type": "Row",
-      "properties": {
-        "backgroundColor": "#FFFFFF"
-      }
-    },
-    {
-      "id": "content_area",
-      "type": "Column", 
-      "children": {
-        "explicitList": [
-          {
-            "id": "account_header",
-            "type": "Text",
-            "properties": {
-              "text": {
-                "binding": "$.user.displayName"
-              }, 
-              "fontFamily": "Roboto",
-              "fontSize": 24
-            }
-          },
-          {
-            "id": "transfer_form",
-            "type": "Column",
-            "children": {
-              "explicitList": [
-                {
-                  "id": "from_account",
-                  "type": "Dropdown",
-                  "properties": {
-                    "label": {"literalString": "From Account"},
-                    "placeholder": {"binding": "$.defaultAccount.label"}
-                  }
-                },
-                {
-                  "id": "to_account",
-                  "type": "TextField", 
-                  "properties": {
-                    "label": {"literalString": "To Account"},
-                    "placeholder": {"literalString": "Enter recipient account"}
-                  },
-                  "validation": {
-                    "required": {
-                      "message": {"literalString": "Please enter destination account"}
-                    },
-                    "rules": [
-                      {
-                        "type": "pattern",
-                        "pattern": "^\\d{4,20}$",
-                        "message": {"literalString": "Account number must be 4-20 digits"}
-                      },
-                      {
-                        "type": "minLength",
-                        "value": 4,
-                        "message": {"literalString": "Minimum 4 digits required"}
-                      }
-                    ],
-                    "customValidation": {
-                      "nativeFunction": "validateAccountExists",
-                      "parameters": ["$.to_account.value"]
-                    }
-                  }
-                },
-                {
-                  "id": "amount",
-                  "type": "TextField",
-                  "properties": {
-                    "label": {"literalString": "Amount"},
-                    "textFieldType": "longNumber",
-                    "placeholder": {"literalString": "Enter transfer amount"}
-                  }, 
-                  "validation": {
-                    "required": {
-                      "message": {"literalString": "Transfer amount is required"}
-                    },
-                    "rules": [
-                      {
-                        "type": "minValue",
-                        "value": 1,
-                        "message": {"literalString": "Minimum amount is $1"}
-                      },
-                      {
-                        "type": "maxValue", 
-                        "value": 100000,
-                        "message": {"literalString": "Maximum amount is $100,000 per day"}
-                      },
-                      {
-                        "type": "pattern",
-                        "pattern": "^\\d+(\\.\\d{2})?$",
-                        "message": {"literalString": "Enter valid monetary amount"}
-                      }
-                    ]
-                  },
-                  "dependencies": {
-                    "enabled": {
-                      "rule": "$.to_account.validated === true && $.to_account.value.length >= 4"
-                    },
-                    "required": {
-                      "rule": "$.transfer_type.value === 'urgent'"
-                    }
-                  }
-                }
-              ]
-            ]
-          }
-        ]
-      }
-    }
-  ],
-  "navigationBar": {
-    "type": "bottom_navigation",
-    "items": [
-      {"icon": "ic_home", "label": "Home", "target": "navigate:home"},
-      {"icon": "ic_accounts", "label": "Accounts", "target": "navigate:accounts"},
-      {"icon": "ic_transfer", "label": "Transfer", "target": "navigate:transfer"}
-    ]
-  }
-}
-```
-
-### Validation & Dependence Handling Architecture
-
-#### Cross-Page Validation Flow
-
-The Journey Manager coordinates validation between pages by maintaining context about user progression through forms. For example, validation errors entered on Page 2 remain visible when the user navigates back to Page 1 and then forward again.
-
-```kotlin
-class PageValidationContext {
-    private val validationResultsCache = mutableMapOf<String, ValidationResult>()
-    
-    /**
-     * Validate current page fields with cross-page dependency consideration
-     */
-    fun validateCurrentPage(): List<ValidationError> {
-        val currentpageId = JourneyManager.currentPage.value
-        val currentPageConfig = getPageConfig(currentpageId) 
-        val dataModel = JourneyManager.getCurrentDataModel()
-        
-        val errors = mutableListOf<ValidationError>()
-        
-        // Identify fields in current page
-        val fields = extractValidatableFields(currentPageConfig)
-        
-        fields.forEach { field ->
-            // Validate basic rules
-            val fieldErrors = validateFieldBasics(field, dataModel)
-            
-            // Check cross-page dependencies that might affect this field
-            val crossPageErrors = validateCrossPageDependencies(field, fieldErrors, dataModel)
-            
-            errors.addAll(fieldErrors + crossPageErrors)
-        }
-        
-        // Cache results per page
-        val result = ValidationResult(fieldErrors = errors, timestamp = System.currentTimeMillis())
-        validationResultsCache[currentpageId] = result
-        
-        return errors
-    }
-    
-    /**
-     * Validate if field dependencies are satisfied in context of journey progression
-     */
-    private fun validateCrossPageDependencies(
-        field: ComponentConfig,
-        baseErrors: List<ValidationError>,
-        dataModel: JourneyDataModelStore
-    ): List<ValidationError> {
-        val errors = mutableListOf<ValidationError>()
-        
-        // Check if this field's prerequisites from other pages are met
-        field.prerequisites?.forEach { prerequisite ->
-            val prerequisiteMet = when {
-                prerequisite.type == "data_exists" -> {
-                    dataModel.resolveAtContextPath(prerequisite.path) != null
-                }
-                prerequisite.type == "previous_page_completed" -> {
-                    JourneyManager.journeyHistory.contains(prerequisite.pageId)
-                }
-                prerequisite.type == "form_section_validated" -> {
-                    // Check if referenced section validated successfully
-                    dataModel.getAtPath("${prerequisite.sectionId}.isValid") as? Boolean == true
-                }
-                else -> true // Default to true for unrecognized prerequisites
-            }
-            
-            if (!prerequisiteMet) {
-                errors.add(ValidationError(
-                    fieldId = field.id,
-                    message = prerequisite.failureMessage ?: "Prerequisite not met",
-                    ruleType = "crossPageDependency",
-                    timestamp = System.currentTimeMillis()
-                ))
+        // Extract initial form values from configuration if needed
+        allComponents.values.forEach { component ->
+            // Extract default values and other initialization data from component configuration
+            component.properties?.let { properties ->
+                // Extract properties that should be set in form engine initially
+                // For example, component defaults, initial states, etc.
             }
         }
         
-        return errors
+        // Load all initial data into FormEngine 
+        formEngine?.initializeWithData(initialData)
     }
     
-    /**
-     * Process validation results with page transition context
-     */
-    fun handleValidationResults(
-        validationResult: ValidationResult,
-        targetPageId: String = JourneyManager.currentPage.value,
-        navigationIntent: NavigationIntent = NavigationIntent.Unknown
-    ) {
-        when (navigationIntent) {
-            NavigationIntent.NavigateForward -> {
-                // Ensure current page valid before allowing forward navigation
-                if (validationResult.hasCriticalErrors) {
-                    logValidationResultForPage(targetPageId, validationResult)
-                    Analytics.trackValidationFailure(targetPageId, validationResult.errors)
-                }
-            }
-            NavigationIntent.NavigateBack -> {
-                // Store validation state for potential return
-                validationResultsCache[targetPageId] = validationResult
-            }
-            NavigationIntent.Submit -> {
-                // Validate entire journey context before submission
-                val fulljourneyValidation = validateFulljourney()
-                if (fulljourneyValidation.isValid) {
-                    // Proceed with submission
-                    Analytics.trackFormSubmissionSuccess(targetPageId)
-                } else {
-                    // Highlight relevant errors
-                    val highlightedErrors = highlightRelevantErrors(fulljourneyValidation)
-                    logValidationResultForPage(targetPageId, validationResult.withRelevantErrors(highlightedErrors))
-                }
-            }
+    fun getFormEngine(): FormEngine? = formEngine
+    
+    // New methods to interact with FormEngine through ConfigManager
+    fun updateFormData(elementId: String, newValue: Any?) {
+        formEngine?.let { engine ->
+            // Dispatch to FormEngine with appropriate source
+            engine.updateValue(elementId, newValue, source = ChangeSource.CONFIG_UPDATE)
         }
+    }
+    
+    fun getFormDataValue(elementId: String): Any? {
+        return formEngine?.getCurrentValue(elementId)
+    }
+    
+    fun validateFormElement(elementId: String): List<ValidationError> {
+        return formEngine?.validateField(elementId) ?: emptyList()
+    }
+    
+    // Maintain the previous methods for backward compatibility while migrating
+    fun getCurrentTheme(): Theme? = currentTheme
+    fun setTheme(themeId: String) {
+        currentTheme = themes[themeId]
+        _themeFlow.value = currentTheme
         
-        // Always persist validation state for recovery
-        persistValidationState(validationResult)
+        preferencesManager?.setSelectedTheme(themeId)
+        // NEW: Also potentially notify FormEngine if theme affects any form elements
+        formEngine?.handleThemeChange(themeId)
     }
-}
-```
-
-### Journey-Based Data Binding Flow
-
-#### Multi-Page Data Binding Architecture
-
-The key insight is that while each page has its own isolated data context, the journey manager provides access to global journey data. The binding resolution follows a pattern:
-
-1. First, look for the bound path in the current page's context
-2. If not found, look in the journey-wide context
-3. Validate the bound data in the appropriate context
-
-```
-User Action → JourneyManager → DataModel Context → Page Config → Validation → Binding Resolution → UI Update
-
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Component Event │───▶│ JourneyManager  │───▶│ DataModelStore  │
-│ (onValueChange, ├───▶│ (Navigation/    ├───▶│ (Resolve path   │
-│ onSubmit, etc)  │    │ State context)  │    │ in page/journey│
-└─────────────────┘    └─────────────────┘    │ context)       │
-                                    │         └─────────────────┘
-                                    │                    │
-                                    │                    ▼
-                                    │         ┌─────────────────┐
-                                    │◀────────┤ Validation     │
-                                    │         │ Engine         │
-                                    │         │ (Validate data │
-                                    │         │ against rules) │
-                                    └────────▶├─────────────────┤
-                                              │ Binding         │
-                                              │ Resolver        │
-                                              │ (Update UI)     │
-                                              └─────────────────┘
-```
-
-### Complete Implementation Example
-
-Here's a practical example of the multi-page data validation binding flow:
-
-#### Page 1: Personal Details
-
-```
-{
-  "pageId": "personal_details",
-  "id": "step1_personal",
-  "sections": [
-    {
-      "id": "personal_info_section",
-      "type": "Column",
-      "children": {
-        "explicitList": [
-          {
-            "id": "first_name",
-            "type": "TextField",
-            "properties": {
-              "label": {"literalString": "First Name"}
-            },
-            "validation": {
-              "required": {
-                "message": {"literalString": "First name is required"}  
-              },
-              "rules": [
-                {
-                  "type": "pattern", 
-                  "pattern": "^[A-Za-z]{2,30}$",
-                  "message": {"literalString": "Only letters, 2-30 characters"}
-                }
-              ]
-            }
-          },
-          {
-            "id": "last_name",
-            "type": "TextField", 
-            "properties": {
-              "label": {"literalString": "Last Name"}
-            },
-            "validation": {
-              "required": {
-                "message": {"literalString": "Last name is required"}
-              }
-            }
-          },
-          {
-            "id": "email_address",
-            "type": "TextField",
-            "properties": {
-              "label": {"literalString": "Email Address"}
-            },
-            "validation": {
-              "required": {
-                "message": {"literalString": "Email address is required"}
-              },
-              "rules": [
-                {
-                  "type": "pattern",
-                  "pattern": "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", 
-                  "message": {"literalString": "Enter a valid email address"}
-                }
-              ],
-              "customValidation": {
-                "nativeFunction": "validateEmailDomain",
-                "parameters": ["$.email.address"]
-              }
-            }
-          },
-          {
-            "id": "continue_btn",
-            "type": "Button",
-            "properties": {
-              "text": {"literalString": "Next: Account Setup"}
-            },
-            "action": {
-              "event": "navigate_to_page",
-              "context": {
-                "targetPage": "account_setup",
-                "validationRequired": true,
-                "successRedirect": true
-              }
-            },
-            "enabled": {
-              "rule": "(validated($.first_name) && $.first_name.value.length >= 2) && (validated($.last_name) && $.last_name.value != '') && (validated($.email_address) && $.email_address.validated === true)"
-            }
-          }
-        ]
-      ]
-    }
-  ]
-}
-```
-
-#### Page 2: Account Setup with Cross-Page Dependencies
-
-```
-{
-  "pageId": "account_setup", 
-  "id": "step2_account",
-  "sections": [
-    {
-      "id": "account_info_section",
-      "type": "Column",
-      "children": {
-        "explicitList": [
-          {
-            "id": "welcome_message",
-            "type": "Text",
-            "properties": {
-              "text": {
-                "binding": "$.first_name.value", 
-                "transform": {
-                  "nativeFunction": "concatString",
-                  "parameters": ["Welcome, ", "$.first_name.value"]
-                }
-              }
-            }
-          },
-          {
-            "id": "phone_number", 
-            "type": "TextField",
-            "properties": {
-              "label": {"literalString": "Phone Number"}
-            },
-            "validation": {
-              "required": {
-                "message": {"literalString": "Phone number is required"}
-              },
-              "rules": [
-                {
-                  "type": "pattern", 
-                  "pattern": "^[0-9+\\-\\s().]{10,15}$",
-                  "message": {"literalString": "Enter a valid 10-15 digit phone number"}
-                }
-              ]
-            }
-          },
-          {
-            "id": "account_type",
-            "type": "Dropdown",
-            "properties": {
-              "label": {"literalString": "Account Type"}
-            },
-            "validation": {
-              "required": {
-                "message": {"literalString": "Please select an account type"}
-              }
-            },
-            "dependencies": {
-              "options": {
-                "rule": "getDynamicAccountOptionsByRegion($.user_region.value)",
-                "source": "region_based_options"
-              }
-            }
-          }
-        ]
-      ]
-    }
-  ]
-}
-```
-
-#### Page-Specific Implementation
-
-```kotlin
-@Composable
-fun JourneyPageRenderer(
-    pageId: String,
-    dataModel: JourneyDataModelStore,
-    onNavigate: (String) -> Unit
-) {
-    // Load page configuration
-    val pageConfig = ConfigManager.getPage("banking_journey", pageId)
-    val navigationEnabled = remember { mutableStateOf(true) }
-    
-    // Validate entire page on load
-    LaunchedEffect(pageId) {
-        val validationResult = validatePage(pageConfig, dataModel)
-        navigationEnabled.value = validationResult.isValid && 
-                                  pageConfig.canProceedCheck(dataModel)
-    }
-    
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Render page sections
-        pageConfig.sections.forEach { section ->
-            when (section.type) {
-                "Column" -> {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        renderSectionChildren(
-                            section.children,
-                            dataModel,
-                            onNavigate,
-                            pageId
-                        )
-                    }
-                }
-                "Row" -> {
-                    Row(
-                        modifier = Modifier
-                    ) {
-                        renderSectionChildren(
-                            section.children,
-                            dataModel,
-                            onNavigate,
-                            pageId
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun validatePage(
-    pageConfig: PageConfig,
-    dataModel: JourneyDataModelStore
-): ValidationResult {
-    val validator = ValidationEngine()
-    
-    // Validate all fields in this page
-    val pageFields = pageConfig.extractFields()
-    val result = validator.validatePage(pageFields, dataModel)
-    
-    return result
+    // ... other existing methods
 }
 ```
 
@@ -1773,7 +1806,7 @@ private fun validatePage(
 
 ### Data Flow Pattern for Multi-Page Journey Validations and Bindings
 
-The following diagram illustrates the complete flow from data change through validation and binding resolution across multiple pages:
+The following diagram illustrates the complete flow from data change through validation and binding resolution across multiple pages with Form Engine integration:
 
 ```
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
