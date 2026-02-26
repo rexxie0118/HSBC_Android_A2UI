@@ -22,12 +22,12 @@ This document defines the complete architecture of the A2UI Renderer, including 
                      │ Load at init
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      ConfigManager (Singleton)                   │
+│                      ConfigManager (Singleton)                  │
 │  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │
 │  │ themes: Map    │  │ uiConfig: UIConfig│  │ preferences     │ │
 │  │ allComponents  │  │ globalSettings   │  │ PreferencesMgr  │ │
 │  └────────────────┘  └──────────────────┘  └─────────────────┘ │
-│                                                                  │
+│                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │ themeFlow: StateFlow<Theme?>                             │  │
 │  │ • Emits when theme changes                               │  │
@@ -47,7 +47,7 @@ This document defines the complete architecture of the A2UI Renderer, including 
                │ MaterialTheme.current
                ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Component Renderers                           │
+│                    Component Renderers                          │
 │  renderText() │ renderCard() │ renderButton() │ renderList()   │
 │  • Access MaterialTheme.colorScheme                            │
 │  • Access MaterialTheme.typography                             │
@@ -57,13 +57,144 @@ This document defines the complete architecture of the A2UI Renderer, including 
                │
                ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              DataModelStore + BindingResolver                    │
+│              DataModelStore + BindingResolver                   │
 │  ┌──────────────────┐         ┌─────────────────────────────┐  │
 │  │ _data:StateFlow  │◄───────►│ resolve("$.user.name")      │  │
 │  │ setData()        │         │ updateAtPath()              │  │
 │  │ getAtPath()      │         │ resolveText()               │  │
 │  └──────────────────┘         └─────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Multi-Page Journey Configuration Flow Mermaid Version
+
+```mermaid
+graph LR
+    subgraph "ConfigManager Integration"
+        CM[ConfigManager.getPage()]
+        J[journeyId: banking_journey]
+        P[pageId: homepage]
+    end
+    
+    subgraph "Navigation Host Layer" 
+        NH[NavigationHost with Compose Navigation]
+        SH[startDestination homepage]
+        SR[Screen routes - Homepage, Wealth]
+    end
+    
+    subgraph "Page Routes"
+        HP[homepage]
+        WH[wealth - Secondary]
+        NB[navigate between pages]
+    end
+    
+    subgraph "Page Config Objects"
+        PC[PageConfig object]
+        ID[id pageId journeyId]
+        SEC[sections List&lt;SectionConfig&gt;]
+        SB[statusBar StatusBarConfig]
+        NB[navBar NavigationBarConfig]
+    end
+    
+    subgraph "Page Renderer.kt"
+        PR[PageRenderer renders all sections]
+        TN[top navigation sections]
+        CC[content Column/LazyColumn sections] 
+        BN[bottom navigation sections]
+    end
+    
+    CM --> J
+    CM --> P
+    J --> NH
+    P --> NH
+    NH --> HP
+    HP --> WH
+    HP -.-> NB
+    WH -.-> NB
+    
+    HP --> PC
+    WH --> PC
+    PC --> SEC
+    SEC --> PR
+    PC --> SB
+    PC --> NB
+    SB --> PR
+    NB --> PR
+    PR --> TN
+    PR --> CC
+    PR --> BN
+    
+    style CM fill:#e1f5fe
+    style NH fill:#fff3e0
+    style PC fill:#e8f5e8
+    style PR fill:#f2e5f5
+```
+
+### High-Level Architecture Mermaid Version
+
+```mermaid
+graph TD
+    subgraph "JSON Configuration Files"
+        A[themes.jsonl]
+        B[global_settings.jsonl] 
+        C[sections/*.jsonl]
+    end
+    
+    subgraph "Configuration Manager"
+        CM[ConfigManager Singleton]
+        subgraph "Storage Components"
+            TM[themes: Map]
+            AC[allComponents]
+            UC[uiConfig: UIConfig]
+            GS[globalSettings]
+            PM[preferences PreferencesMgr]
+        end
+        
+        subgraph "StateFlow"
+            TF[themeFlow: StateFlow&lt;Theme?&gt;]
+        end
+    end
+    
+    subgraph "UI Theme Layer"
+        ATM[A2UIRendererTheme]
+        MT[MaterialTheme]
+    end
+    
+    subgraph "Component Renderers"
+        RT[renderText, renderCard, renderButton, renderList]
+    end
+    
+    subgraph "Data Flow"
+        DMS[DataModelStore StateFlow&lt;Map&gt;]
+        BR[BindingResolver]
+        RF[resolve functions]
+    end
+    
+    A --> CM
+    B --> CM
+    C --> CM
+    
+    CM --> TM
+    CM --> AC
+    CM --> UC
+    CM --> GS
+    CM --> PM
+    CM --> TF
+    
+    TF --> ATM
+    ATM --> MT
+    
+    MT --> RT
+    RT --> DMS
+    RT --> BR
+    BR --> RF
+    DMS --> RF
+    
+    style CM fill:#e1f5fe
+    style TF fill:#fff3e0
+    style MT fill:#e8f5e8
+    style DMS fill:#fff3dd
+    style BR fill:#f2e5f5
 ```
 
 ---
@@ -313,6 +444,29 @@ All composables using MaterialTheme rebuild
 UI updated with dark theme colors
 ```
 
+### Theme Switching Flow Mermaid Version
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant TT as ThemeToggleButton
+    participant CM as ConfigManager
+    participant TF as themeFlow
+    participant ART as A2UIRendererTheme
+    participant TC as Tree Composables
+    participant UI as UI Display
+    
+    U->>TT: Clicks theme toggle
+    TT->>CM: onClick()
+    CM->>CM: Update currentTheme
+    CM->>CM: Set preferences
+    CM->>TF: Emit newTheme
+    TF->>ART: Collect change
+    ART->>TC: Recompose with new ColorScheme
+    TC->>UI: Build MaterialTheme composables
+    UI->>UI: Update with dark theme colors
+```
+
 **Implementation**:
 ```kotlin
 @Composable
@@ -355,6 +509,29 @@ BindingResolver.resolve("$.products.0.name")
 Text component displays "Widget"
 ```
 
+### Data Binding Flow Mermaid Version
+
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant D as DataModelStore
+    participant S as StateFlow
+    participant C as Component
+    participant BR as BindingResolver
+    participant T as Text Component
+    
+    A->>D: Provides data JSON
+    D->>D: setData(Map data)
+    D->>S: Set _data.value
+    S-->>S: Emits via StateFlow
+    C->>C: Render with binding
+    C->>BR: resolve("$.products.0.name")
+    BR->>BR: Parse path ["products", "0", "name"]
+    BR->>BR: Traverse - data["products"][0]["name"]
+    BR->>T: Return "Widget"
+    T->>T: Display "Widget" text
+```
+
 **Implementation**:
 ```kotlin
 @Composable
@@ -382,6 +559,30 @@ ListTemplateRenderer.RenderList()
 │   └─► renderComponent()
 │
 └─► LazyColumn/LazyRow displays items
+```
+
+### List Template Flow Mermaid Version
+
+```mermaid
+sequenceDiagram
+    participant C as Component with template
+    participant LTR as ListTemplateRenderer.RenderList
+    participant GD as getListData
+    participant IT as Item Iterator
+    participant DDS as DataModelStore
+    participant CT as ComponentTemplate
+    participant RC as renderComponent
+    participant LL as LazyColumn/LazyRow Display
+    
+    C->>LTR: Has children.template
+    LTR->>GD: getListData($.products)
+    GD->>GD: Return List<Map>
+    LTR->>IT: For each item in list
+    IT->>DDS: Create item DataModelStore
+    IT->>CT: Get component template
+    IT->>RC: renderComponent()
+    LTR->>LL: LazyColumn/LazyRow display
+    LL->>LL: Shows all rendered items
 ```
 
 **Implementation**:
@@ -412,31 +613,62 @@ fun RenderList(
 
 ```
 User taps button with action
-        │
-        ▼
-Component action triggers
-        │
-        ▼
-onAction(event, data) callback
-        │
-        ▼
-NavigationHost handles event
-        │
-┌───────▼───────┐
-│ "navigate_wealth" → navController.navigate("wealth")
-│ "navigate_back" → navController.popBackStack()
-│ "navigate_home" → navController.navigate("home") {
-│    popUpTo(0) { inclusive = true }
-└─────────────────────────────────────────────────┘
-        │
-        ▼
-NavHost updates current composable
-        │
-        ▼
-New page loads from ConfigManager
-        │
-        ▼
-PageRenderer renders new page sections
+                            │
+                            ▼
+        Component action triggers
+                            │
+                            ▼
+        onAction(event, data) callback
+                            │
+                            ▼
+        NavigationHost handles event
+                            │
+        ┌─────────────────▼─────────────────┐
+        │  "navigate_wealth" → navController.navigate("wealth") │
+        │  "navigate_back" → navController.popBackStack()       │
+        │  "navigate_home" → navController.navigate("home")    │
+        │     {popUpTo(0) { inclusive = true }}                │
+        └───────────────────────────────────────────────────────┘
+                            │
+                            ▼
+        NavHost updates current composable
+                            │
+                            ▼
+        New page loads from ConfigManager
+                            │
+                            ▼
+        PageRenderer renders new page sections
+```
+
+### Multi-Page Navigation Flow Mermaid Version
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant BTN as Button with action
+    participant CT as Component action
+    participant OA as onAction(event, data) 
+    participant NH as NavigationHost
+    participant NC as NavController
+    participant CM as ConfigManager
+    participant PN as PageRenderer
+    
+    User->>BTN: Taps button with action
+    BTN->>CT: Triggers
+    CT->>OA: event, data callback
+    OA->>NH: Handles event
+    NH->>NC: Process navigation command
+    alt Navigate to wealth page
+        NC->>NC: navigate("wealth")
+    else Navigate back 
+        NC->>NC: popBackStack()
+    else Navigate home
+        NC->>NC: navigate("home") with popUpTo(0)
+    end
+    NH->>NH: Updates current composable
+    NC->>CM: Load new page from ConfigManager
+    CM->>PN: PageRenderer processes sections
+    PN->>PN: Renders new page sections
 ```
 
 **Implementation**:
@@ -571,6 +803,88 @@ graph TB
 │ JourneyManager central orchestrator for multi-page state                                       │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
                                          │
+              ┌──────────────────────────┼─────────────────────────────────────────────────────┐
+              │                        │                                                     │
+    ┌─────────▼─────────┐      ┌────────▼────────┐            ┌─────────▼─────────┐           │
+    │   PAGE 1:         │      │   PAGE 2:       │            │   PAGE N:         │           │
+    │   Homepage        │      │   Wealth        │            │   Settings        │           │
+    │   Configuration   │      │   Configuration │            │   Configuration   │           │
+    │   (JSON Config)   │      │   (JSON Config) │            │   (JSON Config)   │           │
+    └───────────────────┘      └─────────────────┘            └───────────────────┘           │
+               │                        │                                                     │
+               │                        │                                                     │
+    ┌──────────▼────────┐    ┌──────────▼────────┐            ┌──────────▼─────────────────┐ │
+    │   DataModel       │    │   DataModel       │            │   DataModel             │ │
+    │   Validation      │    │   Validation      │            │   Validation            │ │
+    │   Binding         │    │   Binding         │            │   Binding               │ │
+    │   Flow            │    │   Flow            │            │   Flow                  │ │
+    └───────────────────┘    └───────────────────┘            └─────────────────────────┘ │
+               │                        │                                                     │
+               │                        │                                                     │
+               └────────────────────────┼─────────────────────────────────────────────────────┘
+                                        │
+                                ┌───────▼───────┐
+                                │ DataModel     │
+                                │ Store         │
+                                │ (Shared)      │
+                                └───────────────┘
+                                        │
+              ┌─────────────────────────┼─────────────────────────────────────────────────────┐
+              │                         │                                                 │
+    ┌─────────▼─────────┐     ┌─────────▼────────┐            ┌────────────▼──────────┐   │
+    │   VALIDATION      │◄────┤   VALIDATION     │◄───────────┤   VALIDATION          │   │
+    │   ENGINE FOR      │     │   ENGINE FOR     │            │   ENGINE FOR          │   │
+    │   PAGE 1 BINDINGS │     │   PAGE 2 BINDINGS│            │   PAGE N BINDINGS     │   │
+    └───────────────────┘     └────────────────┘            └───────────────────────┘   │
+               │                         │                                                 │
+               │                         │                                                 │
+    ┌─────────▼─────────┐     ┌─────────▼────────┐            ┌───────────▼───────────┐   │
+    │   DATA BINDING    │     │   DATA BINDING   │            │   DATA BINDING        │   │
+    │   FOR PAGE 1      │     │   FOR PAGE 2     │            │   FOR PAGE N          │   │
+    │   WITH CONTEXT    │     │   WITH CONTEXT   │            │   WITH CONTEXT        │   │
+    └───────────────────┘     └──────────────────┘            └───────────────────────┘   │
+                                   ┌─────────────────────────────────────────────────────────┘
+        │
+        ▼
+ValidationEngine.validateField()
+        │
+├─► Check required
+├─► Check rules (pattern, length, etc.)
+└─► Check custom validation
+        ↓
+Update UI state (showError, errorMessage)
+```
+
+### Validation Processing Mermaid Version
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant TF as TextField
+    participant VC as onValueChange
+    participant DMS as DataModelStore
+    participant DB as Debounce
+    participant VE as ValidationEngine
+    participant US as Update UI state
+    
+    U->>TF: Types in TextField
+    TF->>VC: Trigger
+    VC->>DMS: Update DataModelStore
+    DMS->>DB: Debounce (300ms)
+    DB->>VE: validateField(component, dataModel)
+    VE->>VE: Check required
+    VE->>VE: Check rules (pattern, length etc)
+    VE->>VE: Check custom validation
+    VE->>US: Update showError, errorMessage
+    US->>TF: Show validation status
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    Journey Configuration Layer                                │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ JourneyConfig object with page list and navigation rules                                       │
+│ JourneyManager central orchestrator for multi-page state                                       │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                         │
               ┌──────────────────────────┼──────────────────────────────────┐
               │                        │                                  │
     ┌─────────▼─────────┐      ┌────────▼────────┐            ┌─────────▼─────────┐
@@ -622,23 +936,69 @@ The following diagram illustrates the complete flow from data change through val
 ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
 │     User enters data in TextField               │───▶│          JourneyManager Manages context         │───▶│         Current Page Specific Data Binding        │
 └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                             │                                                            │                                      │
-                             ▼                                                            ▼                                      ▼
+                                                     
 ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
 │    DataModelStore Updates State (Page/Journey) │───▶│    Validation Engine with Journey Context       │───▶│    Field Validation (Cross-Page Dependencies)   │
 └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                             │                                                            │                                      │
-                             ▼                                                            ▼                                      ▼
+                                                     
 ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
 │       StateFlow Emits Change                    │───▶│    Compose Rebuild Based on Validation        │───▶│    Binding Resolver Processes Data Binding      │
 │                                                 │    │       Result & Data Context State             │    │      (Page/Journey Priority)                  │
 └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
-                             │                                    │                                                  │
-                             ▼                                    ▼                                                  ▼
+                                                     
 ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
 │           UI State Changed                      │    │    UI Rebuild with Current Context              │    │    Validation Error Displayed w/Solution Hint   │
 │                                                 │    │                                                 │    │                                                 │
 └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
+```
+
+### Multi-Pages Journey Data, Validation, and Binding Flow Mermaid Version
+
+```mermaid
+graph LR
+    subgraph "User Entry & Initialization"
+        UE[User enters data in TextField]
+        JM[JourneyManager manages context]
+    end
+    
+    subgraph "Data Processing"
+        DMS[DataModelStore Updates State Page/Journey]
+        VE[Validation Engine with Journey Context]
+        FV[Field Validation Cross-Page Dependencies]
+    end
+    
+    subgraph "UI Processing" 
+        SF[StateFlow Emits Change]
+        CR[Compose Rebuild Based on Validation Result & Data Context State]
+        BR[Binding Resolver Processes Data Binding Page/Journey Priority]
+    end
+    
+    subgraph "UI Presentation"
+        USC[UI State Changed] 
+        UR[UI Rebuild with Current Context]
+        VER[Validation Error Displayed w/Solution Hint]
+    end
+    
+    UE --> JM
+    UE --> DMS
+    JM --> VE
+    DMS --> VE 
+    VE --> FV
+    DMS --> SF
+    VE --> CR 
+    SF --> CR
+    FV --> BR
+    CR --> BR
+    US --> USC
+    CR --> UR
+    BR --> VER
+    
+    style JM fill:#e1f5fe
+    style DMS fill:#fff3e0  
+    style VE fill:#e8f5e8
+    style BR fill:#f2e5f5
+    style UR fill:#f5e5f3
+    style VER fill:#e5f5ed
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                            Journey Configuration Layer                  │
@@ -646,48 +1006,95 @@ The following diagram illustrates the complete flow from data change through val
 │ JourneyConfig object with page list and navigation rules                │
 │ JourneyManager central orchestrator for multi-page state                │
 └─────────────────────────────────────────────────────────────────────────┘
-                               │
-        ┌─────────────────────┼───────────────────────┐                  
-        │                     │                       │                  
-┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
-│ PAGE 1:        │      │ PAGE 2:    │        │ PAGE N:        │    
-│ Homepage       │      │ Wealth     │        │ Settings       │    
-│ Configuration  │      │ Configuration│       │ Configuration  │    
-│ (JSON Config)  │      │ (JSON Config)│       │ (JSON Config)  │    
-└────────────────┘      └────────────┘       └────────────────┘    
-        │                     │                       │                  
-        │                     │                       │                  
-┌─────┬─▼─────────┐    ┌──────▼─────────┐    ┌──────▼─────────┐        
-│   │ DataModel   │    │   DataModel    │    │   DataModel    │        
-│   │ Validation  │    │ Validation     │    │ Validation     │        
-│   │ Binding     │    │ Binding        │    │ Binding        │        
-│   │ Flow        │    │ Flow           │    │ Flow           │        
-└───┼─────────────┘    └────────────────┘    └────────────────┘        
-    │                        │                       │                  
-    │                        │                       │                  
-    └────────────────────────┼───────────────────────┘                  
-                             │                                          
-                         ┌───▼───┐                                      
-                         │ Data  │                                      
-                         │ Model │                                      
-                         │ Store │                                      
-                         │ (Shared)                                     
-                         └───────┘                                      
-                              │                                         
-        ┌─────────────────────┼───────────────────────┐                  
-        │                     │                       │                  
-┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
-│ VALIDATION     │◄─────┤VALIDATION  │◄───────┤VALIDATION      │    
-│ ENGINE FOR     │      │ENGINE FOR  │        │ENGINE FOR      │    
-│ PAGE 1 BINDINGS│      │PAGE 2 BINDINGS│      │PAGE N BINDINGS │    
-└────────────────┘      └────────────┘       └────────────────┘    
-        │                     │                       │                  
-        │                     │                       │                  
-┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
-│ DATA BINDING   │      │DATA BINDING│        │DATA BINDING    │    
-│ FOR PAGE 1     │      │FOR PAGE 2  │        │FOR PAGE N      │    
-│ WITH CONTEXT   │      │WITH CONTEXT│        │WITH CONTEXT    │    
-└────────────────┘      └────────────┘       └────────────────┘    
+        │                        │                       │                  
+        │                        │                       │                  
+└────────────────────────┼───────────────────────┘                  
+                         │                                          
+                     ┌───▼───┐                                      
+                     │ Data  │                                      
+                     │ Model │                                      
+                     │ Store │                                      
+                     │ (Shared)                                     
+                     └───────┘
+                          │                                         
+        ┌─────────────────┼───────────────────────┐                  
+        │                 │                       │                  
+┌───────▼──────┐    ┌─────▼──────┐        ┌──────▼───────┐    
+│ VALIDATION   │◄───┤VALIDATION  │◄───────┤VALIDATION    │    
+│ ENGINE FOR   │    │ENGINE FOR  │        │ENGINE FOR    │    
+│ PAGE 1 BINDINGS│  │PAGE 2 BINDINGS│      │PAGE N BINDINGS│    
+└──────────────┘    └────────────┘       └──────────────┘    
+        │                 │                       │                  
+        │                 │                       │                  
+┌───────▼──────┐    ┌─────▼──────┐        ┌──────▼───────┐    
+│ DATA BINDING │    │DATA BINDING│        │DATA BINDING   │    
+│ FOR PAGE 1   │    │FOR PAGE 2  │        │FOR PAGE N     │    
+│ WITH CONTEXT │    │WITH CONTEXT│        │WITH CONTEXT   │    
+└──────────────┘    └────────────┘       └──────────────┘
+
+```
+
+### Complete Multi-Page Journey Architecture Mermaid Version
+
+```mermaid
+graph TB
+    subgraph "Journey Configuration"
+        JC[JourneyConfig<br/>page list and navigation rules]
+        JM[JourneyManager<br/>central orchestrator<br/>multi-page state]
+    end
+
+    subgraph "Pages"
+        subgraph "Page 1: Homepage"
+            P1C[Configuration<br/>JSON Config]
+            P1DV[DataModel Validation<br/>Binding Flow]
+        end
+        
+        subgraph "Page 2: Wealth"  
+            P2C[Configuration<br/>JSON Config]
+            P2DV[DataModel Validation<br/>Binding Flow]
+        end
+        
+        subgraph "Page N: Settings"
+            PNC[Configuration<br/>JSON Config] 
+            PNDV[DataModel Validation<br/>Binding Flow]
+        end
+    end
+
+    subgraph "Shared Components"
+        DMS[(Data Model Store<br/>Shared)]
+        SUB[Subscribers]
+    end
+    
+    subgraph "Validation & Data Binding Systems"
+        V1[VALIDATION ENGINE<br/>FOR PAGE 1 BINDINGS]
+        DB1[DATA BINDING<br/>FOR PAGE 1<br/>WITH CONTEXT]
+        V2[VALIDATION ENGINE<br/>FOR PAGE 2 BINDINGS] 
+        DB2[DATA BINDING<br/>FOR PAGE 2<br/>WITH CONTEXT]
+        VN[VALIDATION ENGINE<br/>FOR PAGE N BINDINGS]
+        DBN[DATA BINDING<br/>FOR PAGE N<br/>WITH CONTEXT]
+    end
+    
+    JC --> JM
+    P1DV --> DMS
+    P2DV --> DMS
+    PNDV --> DMS
+    DMS --> SUB
+    
+    P1C --> V1
+    P2C --> V2  
+    PNC --> VN
+    V1 --> DB1
+    V2 --> DB2
+    VN --> DBN
+    
+    style JM fill:#e1f5fe
+    style DMS fill:#f3e5f5
+    style V1 fill:#fff3e0
+    style V2 fill:#fff3e0
+    style VN fill:#fff3e0
+    style DB1 fill:#e8f5e8
+    style DB2 fill:#e8f5e8
+    style DBN fill:#e8f5e8
 ```
 
 ### Component Architecture with Validation and Data Binding
