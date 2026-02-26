@@ -758,11 +758,17 @@ object ConfigManager {
     
     fun getPage(journeyId: String, pageId: String): PageConfig? = uiConfig.getPage(journeyId, pageId)
     
-    fun getSection(pageId: String, sectionId: String): SectionConfig? = uiConfig.getSection(pageId, sectionId)
+    
+
+fun getSection(pageId: String, sectionId: String): SectionConfig? = uiConfig.getSection(pageId, sectionId)
     
     fun getComponent(componentId: String): ComponentConfig? = uiConfig.getComponent(componentId)
     
-    fun getGlobalSettings(): GlobalSettings? = globalSettings
+        fun getAllPageIds(): String {
+        return uiConfig.getAllPageIds()
+    }
+
+fun getGlobalSettings(): GlobalSettings? = globalSettings
     fun getTheme(themeId: String): Theme? = themes[themeId]
     fun getCurrentTheme(): Theme? = currentTheme
     fun getIconMapping(): IconMapping? = iconMapping

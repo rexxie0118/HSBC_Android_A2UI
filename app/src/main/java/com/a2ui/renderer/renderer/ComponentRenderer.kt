@@ -494,14 +494,15 @@ fun renderIcon(
     
     val size = 24.dp
     
-    // Use IconButton for clickable icons
+    // Use clickable Box for better hit detection
     if (component.action != null) {
-        IconButton(
-            onClick = {
-                android.util.Log.i("IconClick", "Icon ${component.id} clicked: ${component.action?.event}")
-                onAction(component.action!!.event, component.action!!.context)
-            },
-            modifier = Modifier.size(48.dp)
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clickable {
+                    android.util.Log.i("IconClick", "=== ICON CLICKED === ${component.id} event=${component.action?.event}")
+                    onAction(component.action!!.event, component.action!!.context)
+                }
         ) {
             Icon(
                 painter = painter,

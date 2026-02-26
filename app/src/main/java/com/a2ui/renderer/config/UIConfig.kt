@@ -16,6 +16,11 @@ data class UIConfig(
     fun getPage(journeyId: String, pageId: String): PageConfig? {
         return pages[pageId]
     }
+
+    fun getAllPageIds(): String {
+        return pages.keys.joinToString(", ")
+    }
+    
     
     fun getSection(pageId: String, sectionId: String): SectionConfig? {
         val page = pages[pageId] ?: return null

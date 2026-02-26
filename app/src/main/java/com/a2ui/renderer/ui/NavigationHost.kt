@@ -66,8 +66,12 @@ fun NavigationHost() {
             val pageId = backStackEntry.arguments?.getString("pageId") ?: return@composable
             
             android.util.Log.i("NavigationHost", "Getting page: journeyId=$journeyId, pageId=$pageId")
+            android.util.Log.i("NavigationHost", "=== ROUTE HIT === journeyId=$journeyId pageId=$pageId")
             val page = ConfigManager.getPage(journeyId, pageId)
-            android.util.Log.i("NavigationHost", "Page result: ${if (page != null) "FOUND ${page.id}" else "NULL"}")
+            android.util.Log.i("NavigationHost", "Page result: ${if (page != null) "FOUND ${page.id}" else "NULL - pages map has: " + com.a2ui.renderer.config.ConfigManager.getAllPageIds()}")
+            if (page == null) {
+                android.util.Log.e("NavigationHost", "PAGE NOT FOUND! journeyId=$journeyId pageId=$pageId")
+            }
             GenericPage(
                 page = page,
                 navController = navController,
@@ -91,6 +95,7 @@ fun GenericPage(
         renderPage(
             page = page,
             onAction = { event, data ->
+                android.util.Log.i("GenericPage", "=== ACTION RECEIVED === event=$event")
                 when {
                     event.startsWith("navigate:") -> {
                         val parts = event.substringAfter("navigate:").split(":")

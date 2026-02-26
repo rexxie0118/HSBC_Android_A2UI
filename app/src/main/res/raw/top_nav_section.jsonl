@@ -5,4 +5,4 @@
 {"type":"Text","id":"nav_card","parent":"top_nav_section","properties":{"text":{"literalString":"\u94f6\u884c\u5361"},"color":"#FFFFFF","padding":{"start":8}}}
 {"type":"Text","id":"nav_wealth","parent":"top_nav_section","properties":{"text":{"literalString":"\u8d22\u5bcc"},"color":"#FFCDD2","padding":{"start":8}}}
 {"type":"Text","id":"nav_insurance","parent":"top_nav_section","properties":{"text":{"literalString":"\u4fdd\u9669"},"color":"#FFFFFF","padding":{"start":8}}}
-{"type":"Icon","id":"nav_menu","parent":"top_nav_section","properties":{"icon":"menu","usageHint":"navigation","tintColor":"#FFFFFF"},"action":{"event":"navigate:change_name_journey:digital_forms_page"}}
+{"type":"Icon","id":"nav_menu","parent":"top_nav_section","properties":{"icon":"menu","usageHint":"navigation","tintColor":"#FFFFFF"},"action":{"event":"navigate:change_name_journey:digital_forms"}}
