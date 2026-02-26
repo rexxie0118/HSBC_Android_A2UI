@@ -3,6 +3,8 @@ package com.a2ui.renderer.form.engine
 import com.a2ui.renderer.form.dependency.DependencyGraph
 import com.a2ui.renderer.form.evaluation.*
 import com.a2ui.renderer.form.state.*
+import com.a2ui.renderer.form.validation.ValidationEngine
+import com.a2ui.renderer.config.ComponentConfig
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -76,18 +78,20 @@ class FormEngine {
         source: ChangeSource = ChangeSource.USER_INPUT,
         elementDependencies: List<String> = emptyList()  // NEW: Dependency list from expressions/config
     ) {
-        stateProvider.updateState { currentState ->
-            currentState.withValue(elementId, newValue).let { updatedState ->
-                // NEW: Mark as touched if user initiated
-                if (source == ChangeSource.USER_INPUT) {
-                    updatedState.copy(
-                        touchedFlags = updatedState.touchedFlags + (elementId to true)
-                    )
-                } else {
-                    updatedState
-                }
-            }
+        // UPDATE: Get current state
+        val currentState = stateProvider.getState()
+        // UPDATE: Create updated state
+        var updatedState = currentState.withValue(elementId, newValue)
+        
+        // NEW: Mark as touched if user initiated
+        if (source == ChangeSource.USER_INPUT) {
+            updatedState = updatedState.copy(
+                touchedFlags = updatedState.touchedFlags + (elementId to true)
+            )
         }
+        
+        // UPDATE: Set the new state
+        stateProvider.setState(updatedState)
         
         // NEW: Track dependencies if provided
         elementDependencies.forEach { dependency ->
@@ -122,9 +126,9 @@ class FormEngine {
     
     private suspend fun rerunValidationsForElement(elementId: String) {
         // NEW: Clear any existing errors for this element (we re-evaluate)
-        stateProvider.updateState { currentState ->
-            currentState.clearError(elementId)
-        }
+        var currentState = stateProvider.getState()
+        var updatedState = currentState.clearError(elementId)
+        stateProvider.setState(updatedState)
         
         // NEW: Get element configuration to retrieve validation rules
         val config = getComponentConfig(elementId)  // This would fetch from ConfigManager
@@ -135,9 +139,9 @@ class FormEngine {
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { errors ->
                     errors.forEach { error ->
-                        stateProvider.updateState { currentState ->
-                            currentState.withError(elementId, error)
-                        }
+                        currentState = stateProvider.getState()
+                        updatedState = currentState.withError(elementId, error)
+                        stateProvider.setState(updatedState)
                     }
                 }
         }
@@ -156,9 +160,9 @@ class FormEngine {
             ) ?: true  // Default to visible if expression evaluation fails
             
             // NEW: Update visibility state in FormState
-            stateProvider.updateState { currentState ->
-                currentState.copy(visibility = currentState.visibility + (elementId to (result as? Boolean ?: false)))
-            }
+            var currentState = stateProvider.getState()
+            val updatedState = currentState.copy(visibility = currentState.visibility + (elementId to (result as? Boolean ?: false)))
+            stateProvider.setState(updatedState)
         }
     }
     
@@ -174,9 +178,9 @@ class FormEngine {
             ) ?: true // Default to enabled if expression fails
             
             // NEW: Update enabled state in FormState
-            stateProvider.updateState { currentState ->
-                currentState.copy(enabled = currentState.enabled + (elementId to (result as? Boolean ?: false)))
-            }
+            var currentState = stateProvider.getState()
+            val updatedState = currentState.copy(enabled = currentState.enabled + (elementId to (result as? Boolean ?: false)))
+            stateProvider.setState(updatedState)
         }
     }
     
@@ -192,9 +196,9 @@ class FormEngine {
             ) as? List<ChoiceOption> ?: emptyList()
             
             // NEW: Update choices in FormState
-            stateProvider.updateState { currentState ->
-                currentState.copy(choices = currentState.choices + (elementId to result))
-            }
+            var currentState = stateProvider.getState()
+            val updatedState = currentState.copy(choices = currentState.choices + (elementId to result))
+            stateProvider.setState(updatedState)
         }
     }
     
@@ -202,14 +206,14 @@ class FormEngine {
      * NEW: Form state initialization with full data population.
      */
     suspend fun initializeWithData(initialData: Map<String, Any>, dependencies: Map<String, List<String>> = emptyMap()) {
-        stateProvider.updateState { currentState ->
-            currentState.copy(
-                values = currentState.values + initialData,
-                dirtyFlags = currentState.dirtyFlags + initialData.mapValues { false },
-                touchedFlags = currentState.touchedFlags + initialData.mapValues { false },
-                timestamps = currentState.timestamps + initialData.mapValues { System.currentTimeMillis() }
-            )
-        }
+        val currentState = stateProvider.getState()
+        val updatedState = currentState.copy(
+            values = currentState.values + initialData,
+            dirtyFlags = currentState.dirtyFlags + initialData.mapValues { false },
+            touchedFlags = currentState.touchedFlags + initialData.mapValues { false },
+            timestamps = currentState.timestamps + initialData.mapValues { System.currentTimeMillis() }
+        )
+        stateProvider.setState(updatedState)
         
         // NEW: Initialize dependencies if provided
         dependencies.forEach { (element, dependencies) ->  
@@ -343,7 +347,7 @@ class FormEngine {
             elementCount = stateProvider.getState().values.size,
             errorCount = stateProvider.getState().errors.values.sumOf { it.size },
             dirtyElementCount = stateProvider.getState().dirtyFlags.count { it.value },
-            validationCacheStats = evaluationCache.getCacheStats() // Would need to implement this method
+            validationCacheStats = "" // Would need to implement getCacheStats method
         )
     }
 }
@@ -389,13 +393,4 @@ data class FormStatusInfo(
     val errorCount: Int, 
     val dirtyElementCount: Int,
     val validationCacheStats: String = "N/A"  // Would need to implement cache stats method
-)
-
-/**
- * NEW: Data class for representing form choice option (used for dropdowns, radio buttons, etc.)
- */
-data class ChoiceOption(
-    val value: Any,
-    val label: String,
-    val selected: Boolean = false
 )

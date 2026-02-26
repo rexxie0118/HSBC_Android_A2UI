@@ -263,7 +263,7 @@ class ExpressionEvaluator(
                 // NEW: Path resolution
                 resolvePathExpression(expression.substring(2), state)
             }
-            expression.isBooleanExpression() -> {
+            looksLikeBooleanExpression(expression) -> {
                 // NEW: Boolean expression evaluation
                 safelyParseBooleanExpression(expression, state)
             } 
@@ -316,6 +316,18 @@ class ExpressionEvaluator(
     ): Boolean {
         // NEW: Perform complex validation (cross-field checks, etc.)
         return false  // PLACEHOLDER
+    }
+    
+    /**
+     * NEW: Check if an expression looks like it could be a boolean expression
+     */
+    private fun looksLikeBooleanExpression(expression: String): Boolean {
+        return expression.contains(">=") || expression.contains("<=") || 
+               expression.contains(">") || expression.contains("<") || 
+               expression.contains("==") || expression.contains("!=") || 
+               expression.contains("&&") || expression.contains("||") ||
+               expression.toLowerCase().contains("true") || 
+               expression.toLowerCase().contains("false")
     }
 }
 

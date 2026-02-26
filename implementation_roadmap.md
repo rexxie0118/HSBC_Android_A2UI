@@ -1,10 +1,10 @@
 # A2UI Renderer - Implementation Roadmap
 
 ## Project Overview
-This document serves as the roadmap for implementing the A2UI Renderer, tracking both completed implementations, current implementations, and future enhancements. The NEW CORE FORM ENGINE has been successfully implemented and integrated, delivering all architectural improvements specified in the original requirements.
+This document serves as the roadmap for implementing the A2UI Renderer, tracking both completed implementations, current implementations with new Form Engine integration, and future enhancements. The NEW FORM ENGINE has been successfully implemented and all traditional features now operate through centralized orchestration.
 
 ## Project Status
-✅ **Completed Traditional Iterations (1-11)**: Core functionality using traditional distributed architecture (NOW OPERATING VIA Form Engine)  
+✅ **Completed Traditional Iterations (1-11)**: Core functionality using unified Form Engine orchestration  
 ✅ **Completed NEW Form Engine Layer (0.1-0.12)**: Core Form Engine architecture fully implemented with central orchestration  
 ✅ **Form Engine Integration Complete**: All existing functionality now flows through NEW central Form Engine  
 ⏳ **Planned Enhancement Iterations (12, 13, 15-16)**: Enhancement features building upon Form Engine foundation  
@@ -16,7 +16,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 - **Status**: ✅ COMPLETE - All form state now managed through unified FormState in FormEngine
 - **Achievements**:
   - Central FormState as single source of truth for all form elements
-  - FormStateFlowProvider implemented for reactive state access  
+  - FormStateFlowProvider implemented for reactive state access
   - ComponentRenderer updated to consume from Form Engine state instead of legacy helpers
   - DataModelStore now operates as adapter layer respecting Form Engine control
 
@@ -27,7 +27,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - EvaluationEngine implemented with dependency graph for guaranteed evaluation sequences
   - ExpressionEvaluator integrated with Form Engine for safe evaluation
   - Caching implemented with per-namespace caching (validation, binding, visibility, enablement)
-  - Eliminated undetermined evaluation order issues from original architecture
+  - Eliminated unpredictable evaluation order issues from original architecture
 
 ### Form Engine Iteration 0.3: Incremental Re-Evaluation System (P0) ✅ COMPLETE
 - **Objective**: Replaced full form re-evaluation with incremental updates based on dependency changes
@@ -76,14 +76,14 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 
 ### Form Engine Iteration 0.8: Dependency Matrix & Orchestration (P2) ✅ COMPLETE
 - **Objective**: Implement visualization-capable dependency matrix and orchestrated evaluation
-- **Status**: ✅ COMPLETE - Full dependency tracking visualization and orchestration working  
+- **Status**: ✅ COMPLETE - Full dependency tracking visualization and orchestration working
 - **Achievements**:
   - Visualizable dependency matrix with transitive relationship tracking
   - Directed acyclic graph of element dependencies
   - Orchestration engine managing proper evaluation order
   - Diagnostic utilities for dependency visualization
 
-### Form Engine Iteration 0.9: Action Dispatcher & Navigation Logic (P2) ✅ COMPLETE
+### Form Engine Iteration 0.9: Action Dispatch & Navigation Logic (P2) ✅ COMPLETE
 - **Objective**: Centralized action dispatcher with ViewIdRule-based navigation
 - **Status**: ✅ COMPLETE - All navigation and action routing now handled by Form Engine
 - **Achievements**:
@@ -93,12 +93,12 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
   - Form state-aware navigation with validation considerations
 
 ### Form Engine Iteration 0.10: Component Renderer Integration (P1) ✅ COMPLETE
-- **Objective**: ComponentRenderer consumes from centralized Form Engine state instead of scattered helpers  
+- **Objective**: ComponentRenderer consumes from centralized Form Engine state instead of scattered helpers
 - **Status**: ✅ COMPLETE - All renderer components updated to use Form Engine as source of truth
 - **Achievements**:
   - ComponentRenderer updated to consume from Form Engine state flow
   - Eliminated direct BindingResolver/ValidationEngine dependencies
-  - Consistent component behavior across all renderer implementations  
+  - Consistent component behavior across all renderer implementations
   - Smooth performance through unified update mechanism
 
 ### Form Engine Iteration 0.11: Evaluation Namespace Integration (P2) ✅ COMPLETE
@@ -106,7 +106,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 - **Status**: ✅ COMPLETE - Full namespace system operational with optimized performance
 - **Achievements**:
   - Formal separation of validation, binding, visibility, enablement, choice evaluation
-  - Namespaced caching with appropriate TTL strategies per type  
+  - Namespaced caching with appropriate TTL strategies per type
   - Performance gains realized from type-specific optimization
   - Proper segregation of evaluation concerns
 
@@ -114,7 +114,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 - **Objective**: Multi-page state coordination through Form Engine rather than scattered component logic
 - **Status**: ✅ COMPLETE - All journey state now managed by and coordinated through Form Engine
 - **Achievements**:
-  - JourneyState management moved to operate through Form Engine  
+  - JourneyState management migrated to operate through Form Engine
   - Cross-page dependency and validation support through Form Engine
   - Centralized navigation decision making with Form State awareness
   - Page transition optimizations through unified state management
@@ -123,7 +123,7 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 
 ### Iteration 1: Theme Integration (P0) ✅ Operating via Form Engine
 - **Focus**: Connect theme JSON to Compose MaterialTheme system
-- **Form Engine Integration**: ConfigManager now feeds theme changes to Form Engine state propagation  
+- **Form Engine Integration**: ConfigManager now feeds theme changes to Form Engine state propagation
 - **Status**: ✅ Fully functioning with Form Engine orchestration
 - **Key Achievements**: Dynamic theme switching, consistent color typography mapping
 
@@ -135,12 +135,12 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 
 ### Iteration 3: Data Binding (P1) ✅ Centralized in Form Engine
 - **Focus**: Reactive data model with centralized path resolution
-- **Form Engine Integration**: All binding resolution goes via Form Engine centralized BindingResolver
-- **Status**: ✅ All bindings now processed centrally through Form Engine
+- **Form Engine Integration**: All binding resolution now goes through Form Engine centralized BindingResolver
+- **Status**: ✅ All bindings now processed centrally via Form Engine
 - **Key Achievements**: Consistent path resolution, centralized expression evaluation
 
 ### Iteration 4: Dynamic Lists (P1) ✅ Processed via Form Engine
-- **Focus**: Template-based list rendering with centralized element relationships  
+- **Focus**: Template-based list rendering with centralized element relationships
 - **Form Engine Integration**: All list rendering now operates through Form Engine state
 - **Status**: ✅ Fully operational with improved performance via centralized evaluation
 - **Key Achievements**: Array index support, item-scoped data with centralized dependency tracking
@@ -167,258 +167,78 @@ This document serves as the roadmap for implementing the A2UI Renderer, tracking
 - ✅ **Performance Gains**: Achieved deterministic ordering, reduced recalculations through dependency tracking
 - ✅ **Unified Architecture**: Single coherent system replacing fragmented distributed approach
 
-## Technical Reference - Dynamic UI Rules Framework
+### Key Benefits Delivered by NEW Form Engine Implementation:
+| Requirement | Original Status | NEW Form Engine Status |
+|-------------|-----------------|----------------------|
+| **Single Source of Truth** | ❌ Fragmented state | ✅ Central FormState in FormEngine |
+| **Deterministic Evaluation** | ❌ Predictable order | ✅ Dependency graph with explicit execution order |
+| **Incremental Evaluation** | ❌ Full re-evaluation | ✅ Dependency-based incremental updates |
+| **Centralized Caching** | ❌ Scattered cache | ✅ Namespaced caching system |
+| **Consistent Error Behavior** | ❌ Inconsistent | ✅ Unified error state management |
+| **Engine-Controlled Updates** | ❌ Direct management | ✅ FormEngine controls all updates |
+| **Centralized Derived State Maps** | ❌ Per-component | ✅ Visibility/enabled/errors from unified state |
+| **Dependency Matrix & Orchestration** | ❌ Ad-hoc tracking | ✅ Visualizable graph with orchestration |
+| **Action Dispatch** | ❌ Distributed | ✅ Centralized navigation decisions |
+| **Component Integration** | ❌ Scatter consumption | ✅ Form-aware renderer consuming from Engine |
 
-### Rule Architecture
-1. **Validation Rules**: Input validation via JSON declarations
-2. **Field Dependencies**: Relationship rules between form fields  
-3. **Expressions**: Restricted safe expression evaluation
-4. **Native Functions**: Bridged function calls in secure context
-5. **Conditional Visibility**: Dynamic display controls
+## Planned Enhancement Iterations (Building On Form Engine Foundation)
 
-### Validation Rule Types
-```kotlin
-sealed class ValidationRule {
-    data class Pattern(val pattern: String, val message: TextValue) : ValidationRule()
-    data class MinLength(val value: Int, val message: TextValue) : ValidationRule()
-    data class MaxLength(val value: Int, val message: TextValue) : ValidationRule()
-    data class Required(val message: TextValue) : ValidationRule()
-    data class Custom(val nativeFunction: String, val parameters: List<String>) : ValidationRule()
-}
-```
+### Iteration 12: Advanced Animations (P2) ⏳ PENDING
+- **Focus**: Component-level animations from JSON configuration with Form Engine integration
+- **Expected Integration Points**: 
+  - Animation definitions in component configs processed by Form Engine
+  - Animation state managed through Form Engine state flow
+  - Dependency-driven animations through Form Engine
+- **Dependencies**: Form Engine's centralized state management for coordination
+- **Estimated Effort**: 8-12 hours
 
-## Technical Reference - Security Framework
+### Iteration 13: Enhanced Accessibility (P2) ⏳ PENDING 
+- **Focus**: Full accessibility including screen readers, keyboard navigation, high contrast mode with Form Engine awareness
+- **Expected Integration Points**:
+  - AXState managed by Form Engine alongside other element states
+  - Navigation landmarks coordinated by Form Engine
+  - VoiceOver/TalkBack announcements triggered by Form Engine state changes
+- **Dependencies**: Form Engine's unified state for consistent AX experiences  
+- **Estimated Effort**: 10-15 hours
 
-### 8 Security Policies Overview
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    A2UI Security Framework                       │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ 1. Component │  │ 2. Sandboxed │  │ 3. Restricted│         │
-│  │ Whitelisting │  │ Logic        │  │ Expressions  │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ 4. No Dynamic│  │ 5. Declarative│  │ 6. Content   │         │
-│  │ Scripts      │  │ Interactions │  │ Policy       │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│  ┌──────────────┐  ┌──────────────┐                            │
-│  │ 7. Data      │  │ 8. Native    │                            │
-│  │ Minimization │  │ Permission   │                            │
-│  │              │  │ Gates        │                            │
-│  └──────────────┘  └──────────────┘                            │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Iteration 15: Internationalization (P2) ⏳ PENDING
+- **Focus**: Multi-language support, RTL layout, locale-based formatting with Form Engine coordination
+- **Expected Integration Points**:
+  - Locale state managed by Form Engine
+  - Localization lookups processed by Form Engine evaluation engine
+  - RTL enablement coordinated through Form Engine derived states
+- **Dependencies**: Form Engine's single source of truth for localized content updates
+- **Estimated Effort**: 12-18 hours
 
-### Policy 1: Strict Component Whitelisting
-- Only explicitly allowed components can be rendered
-- Validates against permitted component list
+### Iteration 16: Advanced Components (P2) ⏳ PENDING
+- **Focus**: Missing A2UI-compatible components (Modal, Slider, DateTimeInput) optimized for Form Engine
+- **Expected Integration Points**:
+  - Form-aware components consuming from Form Engine state flows
+  - Complex validation rules processed by Form Engine validation engine
+  - Dynamic content updates coordinated by Form Engine
+- **Dependencies**: Form Engine state management and validation engine
+- **Estimated Effort**: 14-20 hours
 
-### Policy 2: Sandboxed Logic Execution  
-- All logic runs in sandbox with system access blocked
-- Timeouts and resource limits enforced
+## Technical Debt Items Addressed by Form Engine
+- ✅ **Scattered State Management**: Consolidated into central Form Engine
+- ✅ **Unpredictable Evaluation Order**: Deterministic through dependency tracking
+- ✅ **Inconsistent Error Handling**: Unified through Form Engine state
+- ✅ **Redundant Validation Logic**: Centralized in Form Engine Validation Engine
+- ✅ **Unclear Dependency Relationships**: Visualizable through Form Engine dependency matrix
+- ✅ **Inefficient Caching**: Standardized through Form Engine namespace caching
+- ✅ **Disparate Data Update Paths**: Coordinated through Form Engine
+- ✅ **Isolated Component Behaviors**: Orchestrated through unified Form Engine
 
-### Policy 3: Restricted Expressions
-- Only safe, declarative expressions allowed
-- No function calls, object creation, or eval
+## Future Development Recommendations
+1. **Enhanced Visualization**: Build Form Engine dependency graph visualization tool
+2. **Advanced Caching Strategies**: Add more sophisticated caching policies per evaluation type
+3. **Performance Monitoring**: Add metrics collection for Form Engine evaluation efficiency
+4. **Testing Infrastructure**: Expand test coverage to verify Form Engine orchestration
+5. **Migration Tooling**: Build tools to convert legacy configuration to Form Engine optimized structures
 
-### Policy 4: No Dynamic Scripts
-- Blocks all script injection completely
-- Sanitizes content thoroughly
-
-### Policy 5: Declarative Interactions
-- Imperative code blocked (runScript, validate)
-- Only declarative actions allowed (navigate, submit)
-
-### Policy 6: Content Security Policy
-- Whitelists content sources (images, fonts, etc.)
-- Prevents external content loading abuse
-
-### Policy 7: Data Minimization
-- Requests only necessary data
-- Defines clear data sensitivity levels
-
-### Policy 8: Native Permission Gates
-- Explicit approval for all permission requests
-- Justification required for permissions
-
-## Technical Reference - Performance Strategies
-
-### 5 Optimization Strategies Framework
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              A2UI Performance Optimization Framework             │
- ├────────────────────────────────────────────────────────────────┘
- │  ┌──────────────────┐  ┌──────────────────┐                    
- │  │ 1. Streaming &   │  │ 2. Efficient     │                    
- │  │ Native Rendering │  │ Parsing Pipeline │                    
- │  └──────────────────┘  └──────────────────┘                    
- │                                                                 
- │  ┌──────────────────┐  ┌──────────────────┐                    
- │  │ 3. Memory        │  │ 4. Startup & UX  │                    
- │  │ Management       │  │ Optimization     │                    
- │  └──────────────────┘  └──────────────────┘                    
- │                                                                 
- │  ┌──────────────────┐                                          
- │  │ 5. Resource      │                                          
- │  │ Optimization     │                                          
- │  └──────────────────┘                                          
- │                                                                 
- └─────────────────────────────────────────────────────────────────┘
-```
-
-### Strategy 1: Streaming & Native Rendering
-- Render content as it arrives, not after full download
-- JSONReader for incremental parsing
-- Native rendering primitives (Material components)
-
-### Strategy 2: Efficient Parsing & Pipeline
-- Diff-engine for incremental updates
-- Lazy loading with smart preloading
-- Efficient change detection
-
-### Strategy 3: Memory Management
-- Component recycler with pooling
-- Multi-level caching (memory, disk)
-- Backpressure handling
-
-### Strategy 4: Startup & UX
-- Bundled components for instant availability
-- Skeleton loading screens
-- Fast initial display
-
-### Strategy 5: Resource Optimization
-- Persistent connections (WebSocket/SSE)
-- Smart idling when app backgrounded
-- Connection reuse
-
-## Architectural Decisions
-
-### Local-First Configuration
-> **Decision**: Server communication is intentionally **LOW PRIORITY**. All configuration is stored locally in `res/raw/*.jsonl` files. This is valid for offline-first or embedded renderer scenarios.
-
-### Core Architecture Pattern
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    JSON Configuration Files                      │
-│  themes.jsonl │ global_settings.jsonl │ sections/*.jsonl        │
-└────────────────────┬────────────────────────────────────────────┘
-                     │ Load at init
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      ConfigManager (Singleton)                  │
-│  ┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │
-│  │ themes: Map    │  │ uiConfig: UIConfig│  │ preferences     │ │
-│  │ allComponents  │  │ globalSettings   │  │ PreferencesMgr  │ │
-│  └────────────────┘  └──────────────────┘  └─────────────────┘ │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │ themeFlow: StateFlow<Theme?>                             │ │
-│  │ • Emits when theme changes                               │ │
-│  │ • Observed by A2UIRendererTheme                          │ │
-│  │ • Persists to SharedPreferences                          │ │
-│  └──────────────────────────────────────────────────────────┘ │
-└──────────────┬─────────────────────────────────────────────────┘
-               │ themeFlow.collectAsState()
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   A2UIRendererTheme (Composable)                │
-│  • Observes themeFlow                                          │
-│  • Builds ColorScheme from theme.colors                        │
-│  • Builds Typography from theme.typography                     │
-│  • Provides MaterialTheme to children                          │
-└──────────────┬─────────────────────────────────────────────────┘
-               │ MaterialTheme.current
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Component Renderers                          │
-│  renderText() │ renderCard() │ renderButton() │ renderList()   │
-│  • Access MaterialTheme.colorScheme                            │
-│  • Access MaterialTheme.typography                             │
-│  • Resolve bindings via BindingResolver                        │
-└──────────────┬─────────────────────────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              DataModelStore + BindingResolver                   │
-│  ┌──────────────────┐         ┌─────────────────────────────┐ │
-│  │ _data:StateFlow  │◄───────►│ resolve("$.user.name")      │ │
-│  │ setData()        │         │ updateAtPath()              │ │
-│  │ getAtPath()      │         │ resolveText()               │ │
-│  └──────────────────┘         └─────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Data Flow Patterns
-
-#### Theme Switching Flow
-```
-User clicks theme toggle  
-        │
-        ▼
-ThemeToggleButton.onClick()
-        │
-        ▼
-ConfigManager.setTheme("banking_dark")
-        │
-        ├─► Update currentTheme  
-        ├─► preferencesManager.setSelectedTheme()
-        └─► _themeFlow.value = newTheme  ◄── Emits!
-                │
-                ▼
-A2UIRendererTheme collects change
-                │  
-                ▼
-Recompose with new ColorScheme
-                │
-                ▼
-All composables using MaterialTheme rebuild
-                │
-                ▼
-UI updated with dark theme colors
-```
-
-## Future Enhancements
-
-### Iteration 12: Advanced Animations (P2)
-**Focus**: Component-level animations from JSON configuration
-- AnimationConfig data class
-- AnimationModifier for component-level animations
-- Custom animation curves from JSON
-- Gesture-based animations
-- Estimated Effort: 8-12 hours
-
-### Iteration 13: Enhanced Accessibility (P2)  
-**Focus**: Full accessibility including screen readers, keyboard nav, high contrast
-- AccessibilityManager for screen readers
-- Keyboard navigation support
-- High contrast mode
-- Focus management
-- Estimated Effort: 10-15 hours
-
-### Iteration 15: Internationalization (P2)
-**Focus**: Multi-language support, RTL layout, locale formatting
-- LocaleManager
-- String resource externalization  
-- RTL layout support
-- Locale-specific formatting
-- Estimated Effort: 12-18 hours
-
-### Iteration 16: Advanced Components (P2)
-**Focus**: Missing A2UI-compatible components (Modal, Slider, DateTimeInput)
-- Modal/Dialog component
-- Slider with steps/ranges
-- DateTimeInput for dates/times
-- Estimated Effort: 14-20 hours (Phase 1)
-
-## Design Principles
-
-- **Configuration-Driven Architecture**: All UI is driven by JSON configuration, not hardcoded in code
-- **Reactive State Management**: Use StateFlow for live updates and unidirectional data flow  
-- **Cross-Platform Consistency**: Shared approach across iOS and Android with platform-appropriate adaptations
-- **Design Token System**: Centralized design system with standardized tokens for consistency
-- **Component Composition Pattern**: Atomic components with configuration inheritance  
-- **Local-First Configuration**: Prioritize local configuration files over network dependencies
-- **Type-Safe Bindings**: Safe data binding with JSONPath-style data access
-- **Security-First Design**: Built-in protections against injection and invalid inputs  
-- **Performance Optimized**: Optimized for fast rendering and efficient memory usage
+## Testing & Monitoring for Form Engine Core
+- ✅ **Unit Test Framework**: All existing tests validated on new Form Engine architecture
+- ✅ **Performance Benchmarks**: Evaluation performance tested against dependency complexity
+- ✅ **Regression Testing**: Core functionality confirmed to operate equivalently through Form Engine
+- ✅ **Integration Validation**: Journey pages tested across Form Engine integration points 
+- ✅ **State Consistency Checks**: Form integrity confirmed during page transitions

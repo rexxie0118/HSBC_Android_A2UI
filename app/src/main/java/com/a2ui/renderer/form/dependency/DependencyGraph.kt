@@ -141,7 +141,7 @@ class DependencyGraph {
     /**
      * NEW: Calculate transitive dependencies (elements this element DEPENDS ON).
      */
-    privatesuspend fun getElementsDependedOnTransitively(elementId: String): Set<String> {
+    private suspend fun getElementsDependedOnTransitively(elementId: String): Set<String> {
         return lock.withLock {
             val dependencies = mutableSetOf<String>()
             val queue = ArrayDeque<String>()

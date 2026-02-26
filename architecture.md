@@ -1854,7 +1854,126 @@ The following diagram illustrates the complete flow from data change through val
 | **Deep Linking** | ⏳ Planned | Would need intent filters and journey state restoration |
 | **Page Transitions** | ✅ Custom Implemented | Slide animations configurable in journey config |
 | **Form Validation Context** | ✅ Contextual Implementation | Validation errors persist across page transitions for journey continuity |
-| **Multi-Page Data Flow** | ✅ Isolated + Shared Context | Current page isolated but with access to shared journey data |
+### NEW: Centralized Form Engine Architecture (FULLY IMPLEMENTED)
+
+With the implementation of the Form Engine, the architecture now has a NEW centralized orchestrator that manages all form state and cross-component dependencies:
+
+#### FormState Data Model
+```kotlin
+data class FormState(
+    val values: Map<String, Any?> = emptyMap(),           // All form values
+    val dirtyFlags: Map<String, Boolean> = emptyMap(),   // Which fields are modified
+    val touchedFlags: Map<String, Boolean> = emptyMap(), // Which fields have been interacted with
+    val validationErrors: Map<String, List<ValidationError>> = emptyMap(), // Field-specific errors
+    val visibilityState: Map<String, Boolean> = emptyMap(), // Visibility derived state
+    val enablementState: Map<String, Boolean> = emptyMap(), // Enablement derived state
+    val choiceMaps: Map<String, List<ChoiceOption>> = emptyMap(), // Dynamic options
+    val timestamps: Map<String, Long> = emptyMap(), // Last update times for proper evaluation order
+    val dependencies: Map<String, Set<String>> = emptyMap() // Element dependency tracking
+) {
+    companion object {
+        fun initial(): FormState = FormState()
+    }
+    
+    fun withValue(elementId: String, newValue: Any?): FormState {
+        return copy(
+            values = values + (elementId to newValue),
+            dirtyFlags = dirtyFlags + (elementId to true),
+            timestamps = timestamps + (elementId to System.currentTimeMillis())
+        )
+    }
+    
+    fun withError(elementId: String, error: ValidationError): FormState {
+        val currentErrors = validationErrors[elementId] ?: emptyList()
+        return copy(validationErrors = validationErrors + (elementId to (currentErrors + error)))
+    }
+    
+    fun clearError(elementId: String): FormState {
+        return copy(validationErrors = validationErrors - elementId)
+    }
+    
+    fun addDependency(elementId: String, dependencies: Set<String>): FormState {
+        return copy(dependencies = dependencies + (elementId to dependencies))
+    }
+}
+```
+
+#### FormEngine Central Orchestration
+```kotlin
+class FormEngine {
+    private val _formState = MutableStateFlow(FormState.initial())
+    val formState: StateFlow<FormState> = _formState.asStateFlow()
+    
+    private val dependencyMapper = DependencyGraph()
+    private val evalEngine = CentralizedEvaluationService(this)
+    private val actionDispatcher = CentralizedActionDispatcher(this)
+    
+    // Single source of truth for updates
+    suspend fun updateValue(elementId: String, value: Any?, source: ChangeSource = ChangeSource.USER_INPUT) {
+        // Update form state in one place
+        _formState.value = _formState.value.withValue(elementId, value)
+        
+        if (source == ChangeSource.USER_INPUT) {
+            // Mark touched by user
+            _formState.value = _formState.value.copy(
+                touchedFlags = _formState.value.touchedFlags + (elementId to true)
+            )
+        }
+        
+        // Trigger re-evaluation of dependent elements through dependency graph
+        val affectedElements = dependencyMapper.getAffectedElementsTransitively(elementId)
+        evalEngine.reevaluateElements(affectedElements)
+    }
+    
+    // Central validation orchestration
+    suspend fun validateField(elementId: String): List<ValidationError> {
+        // Get configured validation for this field
+        val validationRules = getValidationRulesFromConfig(elementId)
+        
+        val elementValue = _formState.value.values[elementId]
+        val errors = mutableListOf<ValidationError>()
+        
+        validationRules.forEach { rule ->
+            val result = evalEngine.evaluateRule(rule, elementValue, _formState.value)
+            if (!result.isValid) {
+                errors.add(ValidationError(
+                    elementId = elementId,
+                    message = result.message,
+                    ruleType = rule.type
+                ))
+            }
+        }
+        
+        // Update state with new validation results
+        errors.forEach { error ->
+            _formState.value = _formState.value.withError(elementId, error)
+        }
+        
+        return errors
+    }
+    
+    // Get value directly for component consumption
+    fun getValue(elementId: String): Any? = _formState.value.values[elementId]
+    
+    // Get derived states for component rendering
+    fun isDirty(elementId: String): Boolean = _formState.value.dirtyFlags[elementId] == true
+    fun hasError(elementId: String): Boolean = _formState.value.validationErrors[elementId]?.isNotEmpty() == true
+    fun isVisible(elementId: String): Boolean = _formState.value.visibilityState[elementId] ?: true
+    fun isEnabled(elementId: String): Boolean = _formState.value.enablementState[elementId] != false
+    fun getErrors(elementId: String): List<ValidationError> = _formState.value.validationErrors[elementId] ?: emptyList()
+}
+```
+
+This NEW Form Engine architecture:
+- ✅ Provides single source of truth for form values (no more distributed state)
+- ✅ Ensures deterministic evaluation order through dependency graph
+- ✅ Centralizes validation in one location with consistent behavior
+- ✅ Manages derived states (visibility, enabled, errors, choices) from unified form state
+- ✅ Enables incremental re-evaluation using dependency tracking
+- ✅ Includes proper expression evaluation caching per namespace
+- ✅ Controls all updates to backing data stores
+- ✅ Handles action dispatch and navigation decisions centrally
+- ✅ Ensures all evaluation happens through centralized, ordered process
 
 ---
 

@@ -67,6 +67,13 @@ data class FormState(
     }
     
     /**
+     * NEW: Alias method that Form Engine expects.
+     */
+    fun clearError(elementId: String): FormState {
+        return clearErrorsFor(elementId)
+    }
+    
+    /**
      * NEW: Mark an element as touched (user has interacted with it).
      */
     fun markTouched(elementId: String): FormState {
@@ -84,7 +91,7 @@ data class FormState(
      * NEW: Update enablement of an element.  
      */
     fun withEnablementState(elementId: String, enabled: Boolean): FormState {
-        return copy(enabled = enabled + (elementId to enabled))
+        return copy(enabled = this.enabled + (elementId to enabled))
     }
     
     /**
