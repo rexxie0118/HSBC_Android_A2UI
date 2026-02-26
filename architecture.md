@@ -411,21 +411,32 @@ fun RenderList(
 ### Validation Flow
 
 ```
-User types in TextField
-        ↓
-onValueChange triggers
-        ↓
-Update DataModelStore
-        ↓
-Debounce (300ms)
-        ↓
-ValidationEngine.validateField()
-        ↓
-├─► Check required
-├─► Check rules (pattern, length, etc.)
-└─► Check custom validation
-        ↓
-Update UI state (showError, errorMessage)
+User taps button with action
+        │
+        ▼
+Component action triggers
+        │
+        ▼
+onAction(event, data) callback
+        │
+        ▼
+NavigationHost handles event
+        │
+┌───────▼───────┐
+│ "navigate_wealth" → navController.navigate("wealth")
+│ "navigate_back" → navController.popBackStack()
+│ "navigate_home" → navController.navigate("home") {
+│    popUpTo(0) { inclusive = true }
+└─────────────────────────────────────────────────┘
+        │
+        ▼
+NavHost updates current composable
+        │
+        ▼
+New page loads from ConfigManager
+        │
+        ▼
+PageRenderer renders new page sections
 ```
 
 **Implementation**:
@@ -467,7 +478,7 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
 
 #### Journey Definition Structure
 
-```json
+```
 {
   "type": "journey",
   "id": "banking_journey",
@@ -485,18 +496,152 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
     "allowForward": true,
     "preserveState": true,
     "transition": "slide",
-    "analytics": {
-      "trackPageViews": true
-    }
+  "analytics": {
+    "trackPageViews": true
   }
 }
+```
+
+### Mermaid Diagram
+
+```mermaid
+graph TB
+    subgraph "Journey Configuration Layer"
+        A[JourneyConfig<br/>with page list and navigation]
+        JourneyManager[JourneyManager<br/>central orchestrator<br/>multi-page state]
+    end
+    
+    A --> JourneyManager
+    
+    subgraph "Pages"
+        subgraph "Page 1: Homepage"
+            Config1[Configuration<br/>JSON Config]
+            DVBF1[DataModel Validation<br/>Binding Flow]
+        end
+        
+        subgraph "Page 2: Wealth"
+            Config2[Configuration<br/>JSON Config]
+            DVBF2[DataModel Validation<br/>Binding Flow]
+        end
+        
+        subgraph "Page N: Settings"
+            ConfigN[Configuration<br/>JSON Config]
+            DVBFN[DataModel Validation<br/>Binding Flow]
+        end
+    end
+    
+    DVBF1 --> DataModelStore[(Data Model Store<br/>Shared)]
+    DVBF2 --> DataModelStore
+    DVBFN --> DataModelStore
+    
+    subgraph "Validation & Binding Systems"
+        VE1[VALIDATION ENGINE<br/>FOR PAGE 1 BINDINGS]
+        DB1[DATA BINDING<br/>FOR PAGE 1<br/>WITH CONTEXT]
+        VE2[VALIDATION ENGINE<br/>FOR PAGE 2 BINDINGS]
+        DB2[DATA BINDING<br/>FOR PAGE 2<br/>WITH CONTEXT]
+        VEN[VALIDATION ENGINE<br/>FOR PAGE N BINDINGS]
+        DBN[DATA BINDING<br/>FOR PAGE N<br/>WITH CONTEXT]
+    end
+    
+    Config1 --> VE1
+    Config2 --> VE2
+    ConfigN --> VEN
+    
+    VE1 --> DB1
+    VE2 --> DB2
+    VEN --> DBN
+    
+    style JourneyManager fill:#e1f5fe
+    style DataModelStore fill:#f3e5f5
+    style VE1 fill:#fff3e0
+    style VE2 fill:#fff3e0
+    style VEN fill:#fff3e0
+    style DB1 fill:#e8f5e8
+    style DB2 fill:#e8f5e8
+    style DBN fill:#e8f5e8
 ```
 
 ### Multi-Page Architecture Pattern
 
 ```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    Journey Configuration Layer                                │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ JourneyConfig object with page list and navigation rules                                       │
+│ JourneyManager central orchestrator for multi-page state                                       │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                         │
+              ┌──────────────────────────┼──────────────────────────────────┐
+              │                        │                                  │
+    ┌─────────▼─────────┐      ┌────────▼────────┐            ┌─────────▼─────────┐
+    │   PAGE 1:         │      │   PAGE 2:       │            │   PAGE N:         │
+    │   Homepage        │      │   Wealth        │            │   Settings        │
+    │   Configuration   │      │   Configuration │            │   Configuration   │
+    │   (JSON Config)   │      │   (JSON Config) │            │   (JSON Config)   │
+    └───────────────────┘      └─────────────────┘            └───────────────────┘
+              │                        │                                  │
+              │                        │                                  │
+    ┌─────┬───▼──────────┐    ┌─────────▼─────────┐            ┌─────────▼──────────┐
+    │     │ DataModel    │    │     DataModel     │            │     DataModel      │
+    │     │ Validation   │    │     Validation    │            │     Validation     │
+    │     │ Binding      │    │     Binding       │            │     Binding        │
+    │     │ Flow         │    │     Flow          │            │     Flow           │
+    └─────┼──────────────┘    └───────────────────┘            └────────────────────┘
+          │                         │                                     │
+          │                         │                                     │
+          └─────────────────────────┼─────────────────────────────────────┘
+                                    │
+                                ┌───▼───┐
+                                │ Data  │
+                                │ Model │
+                                │ Store │
+                                │ (Shared)                                │
+                                └───────┘
+                                     │
+              ┌──────────────────────┼─────────────────────────────────────┐
+              │                      │                                     │
+    ┌─────────▼─────────┐    ┌───────▼────────┐            ┌────────────▼──────────┐
+    │   VALIDATION      │◄───┤   VALIDATION   │◄───────────┤   VALIDATION          │
+    │   ENGINE FOR      │    │   ENGINE FOR   │            │   ENGINE FOR          │
+    │   PAGE 1 BINDINGS │    │   PAGE 2 BINDINGS │          │   PAGE N BINDINGS     │
+    └───────────────────┘    └────────────────┘            └───────────────────────┘
+              │                        │                                  │
+              │                        │                                  │
+    ┌─────────▼─────────┐    ┌─────────▼────────┐            ┌───────────▼───────────┐
+    │   DATA BINDING    │    │   DATA BINDING   │            │   DATA BINDING        │
+    │   FOR PAGE 1      │    │   FOR PAGE 2     │            │   FOR PAGE N          │
+    │   WITH CONTEXT    │    │   WITH CONTEXT   │            │   WITH CONTEXT        │
+    └───────────────────┘    └──────────────────┘            └───────────────────────┘
+```
+
+### Data Flow Pattern for Multi-Page Journey Validations and Bindings
+
+The following diagram illustrates the complete flow from data change through validation and binding resolution across multiple pages:
+
+```
+┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
+│     User enters data in TextField               │───▶│          JourneyManager Manages context         │───▶│         Current Page Specific Data Binding        │
+└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
+                             │                                                            │                                      │
+                             ▼                                                            ▼                                      ▼
+┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
+│    DataModelStore Updates State (Page/Journey) │───▶│    Validation Engine with Journey Context       │───▶│    Field Validation (Cross-Page Dependencies)   │
+└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
+                             │                                                            │                                      │
+                             ▼                                                            ▼                                      ▼
+┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
+│       StateFlow Emits Change                    │───▶│    Compose Rebuild Based on Validation        │───▶│    Binding Resolver Processes Data Binding      │
+│                                                 │    │       Result & Data Context State             │    │      (Page/Journey Priority)                  │
+└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
+                             │                                    │                                                  │
+                             ▼                                    ▼                                                  ▼
+┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐    ┌─────────────────────────────────────────────────┐
+│           UI State Changed                      │    │    UI Rebuild with Current Context              │    │    Validation Error Displayed w/Solution Hint   │
+│                                                 │    │                                                 │    │                                                 │
+└─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘    └─────────────────────────────────────────────────┘
+```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    Journey Configuration Layer                          │
+│                            Journey Configuration Layer                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ JourneyConfig object with page list and navigation rules                │
 │ JourneyManager central orchestrator for multi-page state                │
@@ -507,9 +652,9 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
 ┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
 │ PAGE 1:        │      │ PAGE 2:    │        │ PAGE N:        │    
 │ Homepage       │      │ Wealth     │        │ Settings       │    
-│ Configuration  │      │ Configuration│        │ Configuration  │    
-│ (JSON Config)  │      │ (JSON Config)│        │ (JSON Config)  │    
-└────────────────┘      └────────────┘        └────────────────┘    
+│ Configuration  │      │ Configuration│       │ Configuration  │    
+│ (JSON Config)  │      │ (JSON Config)│       │ (JSON Config)  │    
+└────────────────┘      └────────────┘       └────────────────┘    
         │                     │                       │                  
         │                     │                       │                  
 ┌─────┬─▼─────────┐    ┌──────▼─────────┐    ┌──────▼─────────┐        
@@ -520,7 +665,7 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
 └───┼─────────────┘    └────────────────┘    └────────────────┘        
     │                        │                       │                  
     │                        │                       │                  
-    └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘                  
+    └────────────────────────┼───────────────────────┘                  
                              │                                          
                          ┌───▼───┐                                      
                          │ Data  │                                      
@@ -535,14 +680,14 @@ The A2UI Renderer implements multi-page journey navigation where each journey an
 │ VALIDATION     │◄─────┤VALIDATION  │◄───────┤VALIDATION      │    
 │ ENGINE FOR     │      │ENGINE FOR  │        │ENGINE FOR      │    
 │ PAGE 1 BINDINGS│      │PAGE 2 BINDINGS│      │PAGE N BINDINGS │    
-└────────────────┘      └────────────┘        └────────────────┘    
+└────────────────┘      └────────────┘       └────────────────┘    
         │                     │                       │                  
         │                     │                       │                  
 ┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
 │ DATA BINDING   │      │DATA BINDING│        │DATA BINDING    │    
 │ FOR PAGE 1     │      │FOR PAGE 2  │        │FOR PAGE N      │    
 │ WITH CONTEXT   │      │WITH CONTEXT│        │WITH CONTEXT    │    
-└────────────────┘      └────────────┘        └────────────────┘    
+└────────────────┘      └────────────┘       └────────────────┘    
 ```
 
 ### Component Architecture with Validation and Data Binding
@@ -990,7 +1135,7 @@ Here's a practical example of the multi-page data validation binding flow:
 
 #### Page 1: Personal Details
 
-```json
+```
 {
   "pageId": "personal_details",
   "id": "step1_personal",
@@ -1081,7 +1226,7 @@ Here's a practical example of the multi-page data validation binding flow:
 
 #### Page 2: Account Setup with Cross-Page Dependencies
 
-```json
+```
 {
   "pageId": "account_setup", 
   "id": "step2_account",
@@ -1228,28 +1373,28 @@ The following diagram illustrates the complete flow from data change through val
 │ User enters data │───▶│ JourneyManager   │───▶│ Current Page     │
 │ in TextField     │    │ Manages context  │    │ Specific Data    │
 └──────────────────┘    └──────────────────┘    │ Binding          │
-          │                       │              └─────────┬────────┘
-          ▼                       ▼                        ▼
+        │                       │                └─────────┬────────┘
+        ▼                       ▼                        ▼
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
 │ DataModelStore   │───▶│ Validation       │───▶│ Field Validation │
 │ Updates State    │    │ Engine with      │    │ (Cross-Page      │
 │ (Page/Journey)   │    │ Journey Context  │    │ Dependencies)    │
 └──────────────────┘    └──────────────────┘    └─────────┬────────┘
-          │                       │                        ▼
-          ▼                       ▼               ┌─────────────────┐
-┌──────────────────┐    ┌──────────────────┐     │ Binding Resolver│
-│ StateFlow        │───▶│ Compose Rebuild  │────▶│ Processes       │
+        │                       │                        ▼
+        ▼                       ▼               ┌─────────────────┐
+┌──────────────────┐    ┌──────────────────┐    │ Binding Resolver│
+│ StateFlow        │───▶│ Compose Rebuild  │───▶│ Processes       │
 │ Emits Change     │    │ Based on Validation│   │ Data Binding    │
-└──────────────────┘    │ Result & Data    │     │ (Page/Journey   │
-                        │ Context State    │     │ Priority)       │
-                        └──────────────────┘     └─────────────────┘
-                              │                        
-                              ▼                        
-                    ┌──────────────────┐               
-                    │ UI State Update  │               
-                    │ with Validation  │               
-                    │ Errors/Success   │               
-                    └──────────────────┘               
+└──────────────────┘    │ Result & Data    │    │ (Page/Journey   │
+                        │ Context State    │    │ Priority)       │
+                        └──────────────────┘    └─────────────────┘
+                │                 │                     │
+                ▼                 ▼                     ▼
+        ┌────────────────┐ ┌────────────────┐  ┌──────────────────┐
+        │ UI State       │ │ UI Rebuild     │  │ Validation Error │
+        │ Changed        │ │ with Current   │  │ Displayed        │
+        │                │ │ Context        │  │ w/Solution Hint  │
+        └────────────────┘ └────────────────┘  └──────────────────┘
 ```
 
 ---
