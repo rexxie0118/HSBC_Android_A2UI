@@ -4,166 +4,231 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Tracks dependencies between form elements using a directed graph structure.
- * Thread-safe implementation using Mutex for synchronization.
- * Allows determining which elements are directly or transitively affected by a change to any given element.
+ * NEW: Dependency Graph implementation that tracks relationships between form elements.
+ * Enables centralized dependency management with transitive relationship tracking.
+ * Provides visualization capabilities through dependency matrix access.
  */
 class DependencyGraph {
-    // Protect all state mutations with mutex to stay threadsafe
-    private val lock = Mutex()
+    private val lock = Mutex()  // Thread safety for concurrent accesses
     
-    // elementId -> set of other element IDs it depends ON
-    private var _dependentOnGraph: MutableMap<String, MutableSet<String>> = mutableMapOf()
+    // NEW: Store direct dependencies: elementId -> set of elements it depends ON
+    private var elementDependsOn: Map<String, Set<String>> = emptyMap()
     
-    // elementId -> set of other elements that depend on it
-    private var _affectsGraph: MutableMap<String, MutableSet<String>> = mutableMapOf()
-    
-    // Immutable snapshots for consumers
-    val dependentOnGraph: Map<String, Set<String>>
-        get() = _dependentOnGraph.toMap().mapValues { (_, value) -> value.toSet() }
-        
-    val affectsGraph: Map<String, Set<String>>
-        get() = _affectsGraph.toMap().mapValues { (_, value) -> value.toSet() }
+    // NEW: Store reverse dependencies: elementId -> set of elements that depend ON it  
+    private var elementsThatDependOn: Map<String, Set<String>> = emptyMap()
     
     /**
-     * Establish a dependency where dependentElement depends on parentElement.
-     * e.g., "confirmPassword" depends on "password" -> confirmPassword depends-on password
+     * NEW: Records a dependency relationship: elementDepending depends ON elementDependedOn.
+     * e.g., "confirm_password" depends ON "password" field
      */
-    suspend fun trackDependency(dependentElement: String, parentElement: String) {
+    suspend fun recordDependency(elementDepending: String, elementDependedOn: String) {
         lock.withLock {
-            // Update dependent graph (this element has dependency on parent)
-            val currentDependencies = _dependentOnGraph.getOrPut(dependentElement) { mutableSetOf() }
-            currentDependencies.add(parentElement)
+            // Update forward dependencies: elementDepending -> dependsOn elements
+            val currentDependencies = elementDependsOn[elementDepending]?.toMutableSet() ?: mutableSetOf()
+            currentDependencies.add(elementDependedOn)
+            elementDependsOn = elementDependsOn + (elementDepending to currentDependencies.toSet())
             
-            // Update affects graph (parent affects dependent element)
-            val currentlyAffected = _affectsGraph.getOrPut(parentElement) { mutableSetOf() }
-            currentlyAffected.add(dependentElement)
+            // Update reverse dependencies: elementDependedOn -> dependedBy elements  
+            val currentlyDepending = elementsThatDependOn[elementDependedOn]?.toMutableSet() ?: mutableSetOf()
+            currentlyDepending.add(elementDepending)
+            elementsThatDependOn = elementsThatDependOn + (elementDependedOn to currentlyDepending.toSet())
         }
     }
     
     /**
-     * Get all elements that the given element directly depends on.
-     * @return Set of element ids that this element's state depends on.
+     * NEW: Get the elements that a given element directly depends on.
      */
-    suspend fun getDependedOnElements(elementId: String): Set<String> {
+    suspend fun getElementsDependedOn(elementId: String): Set<String> {
         return lock.withLock {
-            (_dependentOnGraph[elementId] ?: emptySet<String>()).toSet()
+            elementDependsOn[elementId] ?: emptySet()
         }
     }
     
     /**
-     * Get all elements that are directly affected by changes to the given element.
-     * @return Set of element ids that are immediately affected by changes to this element.
+     * NEW: Get the elements that directly depend on a given element.
      */
-    suspend fun getAffectingElements(elementId: String): Set<String> {
+    suspend fun getElementsDependingOn(elementId: String): Set<String> {
         return lock.withLock {
-            (_affectsGraph[elementId] ?: emptySet<String>()).toSet()
+            elementsThatDependOn[elementId] ?: emptySet()
         }
     }
     
     /**
-     * Get all elements that should be re-evaluated when the given element changes.
-     * This includes both direct and transitive dependencies.
+     * NEW: Calculate TRANSITIVELY which elements would need to be reprocessed when an element changes.
+     * Uses breadth-first search to find all elements affected by a change.
      */
-    suspend fun getAffectedElementsTransitively(elementId: String): Set<String> {
-        val result = mutableSetOf<String>()
-        val queue = ArrayDeque<String>()
-        val visited = mutableSetOf<String>()
-        
-        lock.withLock {
-            // Start with immediate effects
-            val initialAffects = _affectsGraph[elementId]?.toList() ?: emptyList()
-            queue.addAll(initialAffects)
-            visited.addAll(initialAffects)
-        
-            // Traverse transitively to find all affected elements
-            while (queue.isNotEmpty()) {
-                val currentElement = lock.withLock { queue.removeFirst() }
-                result.add(currentElement)
+    suspend fun getTransitivelyAffectedElements(elementId: String): Set<String> {
+        return lock.withLock {
+            val affected = mutableSetOf<String>()
+            val queue = ArrayDeque<String>()
+            val visited = mutableSetOf<String>()
             
-                // Add more elements affected by this element for further processing
-                val directlyAffected = lock.withLock {
-                    _affectsGraph[currentElement]?.filterNot { item -> visited.contains(item) } ?: emptyList()
-                }
+            // NEW: Start with direct dependents of the changed element
+            val directDependents = elementsThatDependOn[elementId] ?: emptySet()
+            queue.addAll(directDependents)
+            visited.addAll(directDependents)
+            affected.addAll(directDependents)
+            
+            // NEW: Breadth-first traversal to find all transitive dependents
+            while (!queue.isEmpty()) {
+                val currentElement = queue.removeFirst()
                 
-                lock.withLock {
-                    queue.addAll(directlyAffected)
-                    visited.addAll(directlyAffected)
+                // NEW: Find elements that depend on our current element
+                val alsoDependOnCurrent = elementsThatDependOn[currentElement] ?: continue
+                val newElements = alsoDependOnCurrent.filter { !visited.contains(it) } 
+                
+                affected.addAll(newElements)
+                queue.addAll(newElements)
+                visited.addAll(newElements)
+            }
+            
+            affected
+        }
+    }
+    
+    /**
+     * NEW: Create a visualization-friendly representation of the dependency graph.
+     */
+    suspend fun getDependencyMatrixVisual(): DependencyMatrixVisual {
+        val edges = mutableListOf<DependencyEdge>()
+        
+        lock.withLock {
+            elementsThatDependOn.forEach { (deponent, dependents) ->
+                dependents.forEach { dependent ->
+                    edges.add(DependencyEdge(fromElement = deponent, toElement = dependent))
                 }
             }
         }
         
-        return result
+        return DependencyMatrixVisual(
+            elements = (elementDependsOn.keys + elementsThatDependOn.keys).distinct(),
+            dependencies = edges
+        )
     }
     
     /**
-     * Remove a dependency relationship.
+     * NEW: Get direct dependencies count for statistics.
      */
-    suspend fun removeDependency(dependentElement: String, parentElement: String) {
-        lock.withLock {
-            // Update dependent graph
-            val currentDeps = _dependentOnGraph[dependentElement]
-            if (currentDeps != null) {
-                currentDeps.remove(parentElement)
-                if (currentDeps.isEmpty()) {
-                    _dependentOnGraph.remove(dependentElement)
-                }
+    suspend fun getDirectDependenciesCount(elementId: String): Int {
+        return lock.withLock {
+            (elementDependsOn[elementId] ?: emptySet()).size
+        }
+    }
+    
+    /**
+     * NEW: Get number of direct dependents (those that depend on this element) for statistics.
+     */
+    suspend fun getDirectDependentsCount(elementId: String): Int {
+        return lock.withLock {
+            (elementsThatDependOn[elementId] ?: emptySet()).size
+        }
+    }
+    
+    /**
+     * NEW: Get total transitive dependencies for diagnostics/prediction.
+     */
+    suspend fun getTransitiveDependenciesCount(elementId: String): Int {
+        return getElementsDependedOnTransitively(elementId).size
+    }
+    
+    /**
+     * NEW: Get total transitive dependents for diagnostics/prediction.
+     */
+    suspend fun getTransitiveDependentsCount(elementId: String): Int {
+        return getElementsDependingOnTransitively(elementId).size
+    }
+    
+    /**
+     * NEW: Calculate transitive dependencies (elements this element DEPENDS ON).
+     */
+    privatesuspend fun getElementsDependedOnTransitively(elementId: String): Set<String> {
+        return lock.withLock {
+            val dependencies = mutableSetOf<String>()
+            val queue = ArrayDeque<String>()
+            val visited = mutableSetOf<String>()
+            
+            // NEW: Start with direct dependencies
+            val directDependencies = elementDependsOn[elementId] ?: emptySet()
+            queue.addAll(directDependencies)
+            visited.addAll(directDependencies)
+            dependencies.addAll(directDependencies)
+            
+            // NEW: BFS to get all transitive dependencies
+            while (!queue.isEmpty()) {
+                val currentElement = queue.removeFirst()
+                
+                val alsoDependedOnByCurrent = elementDependsOn[currentElement] ?: continue
+                val unvisitedDepends = alsoDependedOnByCurrent.filter { !visited.contains(it) }
+                
+                dependencies.addAll(unvisitedDepends)
+                queue.addAll(unvisitedDepends)
+                visited.addAll(unvisitedDepends)
             }
             
-            // Update affects graph
-            val currentlyAffected = _affectsGraph[parentElement]
-            if (currentlyAffected != null) {
-                currentlyAffected.remove(dependentElement)
-                if (currentlyAffected.isEmpty()) {
-                    _affectsGraph.remove(parentElement)
-                }
+            dependencies
+        }
+    }
+    
+    /**
+     * NEW: Calculate transitive dependents (elements that depend ON this element).
+     */
+    private suspend fun getElementsDependingOnTransitively(elementId: String): Set<String> {
+        return getTransitivelyAffectedElements(elementId)
+    }
+    
+    /**
+     * NEW: Remove a dependency relationship if it exists.
+     */
+    suspend fun removeDependency(elementDepending: String, elementDependedOn: String) {
+        lock.withLock {
+            // Update forward dependencies
+            val currentDeps = elementDependsOn[elementDepending]?.toMutableSet() ?: mutableSetOf()
+            currentDeps.remove(elementDependedOn)
+            elementDependsOn = if (currentDeps.isEmpty()) {
+                elementDependsOn - elementDepending  // Remove empty set entirely
+            } else {
+                elementDependsOn + (elementDepending to currentDeps.toSet())
+            }
+            
+            // Update reverse dependencies  
+            val currentlyDepend = elementsThatDependOn[elementDependedOn]?.toMutableSet() ?: mutableSetOf()
+            currentlyDepend.remove(elementDepending)
+            elementsThatDependOn = if (currentlyDepend.isEmpty()) {
+                elementsThatDependOn - elementDependedOn  // Remove empty set entirely
+            } else {
+                elementsThatDependOn + (elementDependedOn to currentlyDepend.toSet())
             }
         }
     }
     
     /**
-     * Get all elements that directly depend on a specific element.
-     * This is the reverse of getAffectingElements.
-     */
-    suspend fun getDirectDependers(elementId: String): Set<String> {
-        return lock.withLock {
-            (_dependentOnGraph[elementId] ?: emptySet<String>()).toSet()
-        }
-    }
-    
-    /**
-     * Clear all dependencies for an element.
+     * NEW: Clear all dependencies for a specific element.
      */
     suspend fun clearDependenciesFor(elementId: String) {
         lock.withLock {
-            // Remove this element from all parent dependencies
-            val elementsThatDepend = _dependentOnGraph[elementId]
-            elementsThatDepend?.forEach { dependent ->
-                val currentDeps = _dependentOnGraph[dependent]
-                currentDeps?.remove(elementId)
-                if (currentDeps?.isEmpty() == true) {
-                    _dependentOnGraph.remove(dependent)
-                }
-            }
+            // NEW: Remove all outbound dependencies
+            elementDependsOn = elementDependsOn - elementId
             
-            // Remove this element from all affects relationships
-            val elementsAffected = _affectsGraph[elementId]
-            elementsAffected?.forEach { affected ->
-                val currentlyAffected = _affectsGraph[affected]
-                currentlyAffected?.remove(elementId)
-                if (currentlyAffected?.isEmpty() == true) {
-                    _affectsGraph.remove(affected)
-                }
-            }
-        }
-    }
-    
-    /**
-     * Get the total number of elements in the graph.
-     */
-    suspend fun size(): Int {
-        return lock.withLock {
-            _affectsGraph.size.coerceAtLeast(_dependentOnGraph.size)
+            // NEW: Remove all inbound dependencies (elements that depended on this element)
+            elementsThatDependOn = elementsThatDependOn.mapValues { (key, dependents) ->
+                dependents.filter { it != elementId }.toSet()
+            }.filterValues { it.isNotEmpty() }
         }
     }
 }
+
+/**
+ * NEW: Visualization-friendly data structure for dependency matrix viewing.
+ */
+data class DependencyMatrixVisual(
+    val elements: List<String>,
+    val dependencies: List<DependencyEdge>
+)
+
+/**
+ * NEW: Representation of a single dependency edge in visualization.
+ */
+data class DependencyEdge(
+    val fromElement: String,  // Element being depended ON
+    val toElement: String     // Element DEPENDS ON
+)
