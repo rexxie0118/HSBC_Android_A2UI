@@ -461,92 +461,815 @@ fun ValidatedTextField(component: ComponentConfig) {
 
 ## Multi-Page Journey Architecture
 
-### Current Implementation
+### Journey Configuration Flow
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    NavigationHost.kt                            │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ NavHost with Compose Navigation                          │  │
-│  │ • startDestination: "homepage"                           │  │
-│  │ • Routes: Screen.Homepage, Screen.Wealth                 │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└──────────────┬──────────────────────────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Page Routes                                  │
-│  ┌──────────────┐              ┌──────────────┐                │
-│  │ homepage     │◄────────────►│ wealth       │                │
-│  │ (Start)      │  navigate    │ (Secondary)  │                │
-│  └──────┬───────┘              └──────┬───────┘                │
-│         │                             │                         │
-│         ▼                             ▼                         │
-│  ConfigManager.getPage()      ConfigManager.getPage()          │
-│  "banking_journey"            "banking_journey"                │
-│  "homepage"                   "wealth_page"                    │
-└──────────────┬──────────────────────────────┬──────────────────┘
-               │                              │
-               ▼                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    PageConfig Objects                           │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ PageConfig:                                              │  │
-│  │ • id: String                                             │  │
-│  │ • journeyId: String                                      │  │
-│  │ • sections: List<SectionConfig>                          │  │
-│  │ • statusBar: StatusBarConfig                             │  │
-│  │ • navigationBar: NavigationBarConfig                     │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    PageRenderer.kt                              │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ Renders all sections in page                             │  │
-│  │ • Top navigation                                           │  │
-│  │ • Content sections (Column/LazyColumn)                   │  │
-│  │ • Bottom navigation                                      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+The A2UI Renderer implements multi-page journey navigation where each journey and its constituent pages are defined in JSON configuration. The journey structure allows for hierarchical navigation between related page sections while maintaining state flow across page transitions.
+
+#### Journey Definition Structure
+
+```json
+{
+  "type": "journey",
+  "id": "banking_journey",
+  "name": "HSBC Banking App",
+  "version": "1.0",
+  "pages": [
+    "homepage",
+    "wealth_page", 
+    "transfer_page",
+    "settings_page"
+  ],
+  "defaultPage": "homepage",
+  "navigation": {
+    "allowBack": true,
+    "allowForward": true,
+    "preserveState": true,
+    "transition": "slide",
+    "analytics": {
+      "trackPageViews": true
+    }
+  }
+}
 ```
 
-### Navigation Action Flow
+### Multi-Page Architecture Pattern
 
 ```
-User taps button with action
-        ↓
-Component action triggers
-        ↓
-onAction(event, data) callback
-        ↓
-NavigationHost handles event
-        ↓
-├─► "navigate_wealth" → navController.navigate("wealth")
-├─► "navigate_back" → navController.popBackStack()
-└─► "navigate_home" → navController.navigate("home") {
-       popUpTo(0) { inclusive = true }
-   }
-        ↓
-NavHost updates current composable
-        ↓
-New page loads from ConfigManager
-        ↓
-PageRenderer renders new page sections
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Journey Configuration Layer                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│ JourneyConfig object with page list and navigation rules                │
+│ JourneyManager central orchestrator for multi-page state                │
+└─────────────────────────────────────────────────────────────────────────┘
+                               │
+        ┌─────────────────────┼───────────────────────┐                  
+        │                     │                       │                  
+┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
+│ PAGE 1:        │      │ PAGE 2:    │        │ PAGE N:        │    
+│ Homepage       │      │ Wealth     │        │ Settings       │    
+│ Configuration  │      │ Configuration│        │ Configuration  │    
+│ (JSON Config)  │      │ (JSON Config)│        │ (JSON Config)  │    
+└────────────────┘      └────────────┘        └────────────────┘    
+        │                     │                       │                  
+        │                     │                       │                  
+┌─────┬─▼─────────┐    ┌──────▼─────────┐    ┌──────▼─────────┐        
+│   │ DataModel   │    │   DataModel    │    │   DataModel    │        
+│   │ Validation  │    │ Validation     │    │ Validation     │        
+│   │ Binding     │    │ Binding        │    │ Binding        │        
+│   │ Flow        │    │ Flow           │    │ Flow           │        
+└───┼─────────────┘    └────────────────┘    └────────────────┘        
+    │                        │                       │                  
+    │                        │                       │                  
+    └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘                  
+                             │                                          
+                         ┌───▼───┐                                      
+                         │ Data  │                                      
+                         │ Model │                                      
+                         │ Store │                                      
+                         │ (Shared)                                     
+                         └───────┘                                      
+                              │                                         
+        ┌─────────────────────┼───────────────────────┐                  
+        │                     │                       │                  
+┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
+│ VALIDATION     │◄─────┤VALIDATION  │◄───────┤VALIDATION      │    
+│ ENGINE FOR     │      │ENGINE FOR  │        │ENGINE FOR      │    
+│ PAGE 1 BINDINGS│      │PAGE 2 BINDINGS│      │PAGE N BINDINGS │    
+└────────────────┘      └────────────┘        └────────────────┘    
+        │                     │                       │                  
+        │                     │                       │                  
+┌───────▼────────┐      ┌─────▼──────┐        ┌──────▼─────────┐    
+│ DATA BINDING   │      │DATA BINDING│        │DATA BINDING    │    
+│ FOR PAGE 1     │      │FOR PAGE 2  │        │FOR PAGE N      │    
+│ WITH CONTEXT   │      │WITH CONTEXT│        │WITH CONTEXT    │    
+└────────────────┘      └────────────┘        └────────────────┘    
 ```
+
+### Component Architecture with Validation and Data Binding
+
+Here is how data models, validation, and binding work across multiple pages in a journey:
+
+#### DataModelStore with Journey Context
+
+```kotlin
+class JourneyDataModelStore {
+    private val _journeyData = MutableStateFlow<Map<String, Any>>(emptyMap())
+    private val _currentPageData = MutableStateFlow<Map<String, Any>>(emptyMap())
+    
+    // Global journey data flow accessible across all pages
+    val journeyData: StateFlow<Map<String, Any>> = _journeyData.asStateFlow()
+    
+    // Current page-specific data flow for isolated state
+    val currentPageData: StateFlow<Map<String, Any>> = _currentPageData.asStateFlow()
+    
+    /**
+     * Set data for entire journey (persisted across pages)
+     */
+    fun setJourneyData(newData: Map<String, Any>) {
+        _journeyData.value = _journeyData.value + newData
+    }
+    
+    /**
+     * Set data specific to current page (isolated to page lifecycle)
+     */
+    fun setCurrentPageData(newData: Map<String, Any>) {
+        _currentPageData.value = _currentPageData.value + newData
+    }
+    
+    /**
+     * Resolves path across both journey and current page contexts
+     * Priority: currentPage -> journeyData
+     */
+    fun resolveAtContextPath(path: String): Any? {
+        // First look in current page context
+        getAtPath(path, _currentPageData.value)?.let { return it }
+        
+        // Then fall back to journey-wide context
+        return getAtPath(path, _journeyData.value)
+    }
+    
+    /**
+     * Updates data at path in current page context
+     * Falls back to journey data if not present in page context
+     */
+    fun updatePath(path: String, value: Any) {
+        val target = if (_currentPageData.value.containsKey(extractRootKey(path))) {
+            _currentPageData.value + mapOf(extractRootKey(path) to traverseAndSetValue(path, value))
+        } else {
+            _journeyData.value + mapOf(extractRootKey(path) to traverseAndSetValue(path, value))
+        }
+        
+        if (_currentPageData.value.containsKey(extractRootKey(path))) {
+            _currentPageData.value = target
+        } else {
+            _journeyData.value = target
+        }
+    }
+}
+```
+
+### Journey-Based Page Navigation and State Management
+
+#### JourneyManager Implementation
+
+```kotlin
+object JourneyManager {
+    private val _currentPage = MutableStateFlow<String>("")
+    private val _journeyHistory = mutableStateListOf<String>()
+    private val _pageStack = ArrayDeque<String>()
+    private val _pageStates = mutableMapOf<String, PageState>()
+    private val _dataModelStore = JourneyDataModelStore()
+    
+    valcurrentPage: StateFlow<String> = _currentPage.asStateFlow()
+    
+    fun navigateToPage(
+        pageId: String,
+        data: Map<String, Any>? = null,
+        animateTransition: Boolean = true
+    ) {
+        // Save current page state before navigating
+        persistCurrentPageState()
+        
+        // Store navigation metadata
+        _pageStack.addLast(pageId)
+        _journeyHistory.add(pageId)
+        
+        // Load page-specific data bindings
+        data?.let { _dataModelStore.setCurrentPageData(it) }
+        
+        // Update current page
+        _currentPage.value = pageId
+        
+        // Track analytics if configured
+        Analytics.trackPageView(pageId)
+        
+        // Clear previous validation errors for new page context
+        ValidationEngine.clearErrorsForPage(pageId)
+    }
+    
+    fun navigateBack() {
+        if (_pageStack.size <= 1) return
+        if (_journeyHistory.size <= 1) return
+        
+        // Save current state
+        persistCurrentPageState()
+        
+        // Remove current page from stack
+        val leavingpageId = _pageStack.removeLast()
+        _journeyHistory.removeAt(_journeyHistory.size - 1)
+        
+        // Navigate to previous page
+        val previousPage = _pageStack.last()
+        setCurrentPage(previousPage)
+        
+        // Restore page state if available
+        restorePageState(previousPage)
+        
+        Analytics.trackBackNavigation(leavingpageId)
+    }
+    
+    private fun setCurrentPage(pageId: String) {
+        _currentPage.value = pageId
+    }
+    
+    fun getCurrentDataModel(): JourneyDataModelStore = _dataModelStore
+    
+    fun persistCurrentPageState() {
+        _currentPage.value.takeIf { it.isNotEmpty() }?.let { currentPageId ->
+            _pageStates[currentPageId] = PageState(
+                pageId = currentPageId,
+                data = _dataModelStore.currentPageData.value,
+                validationErrors = ValidationEngine.getPageErrors(currentPageId),
+                timestamp = System.currentTimeMillis()
+            )
+        }
+    }
+    
+    fun restorePageState(pageId: String) {
+        _pageStates[pageId]?.let { pageState ->
+            _dataModelStore.setCurrentPageData(pageState.data)
+            ValidationEngine.restorePageValidationErrors(pageId, pageState.validationErrors)
+        }
+    }
+    
+    fun clearPageHistory() {
+        _pageStack.clear()
+        _journeyHistory.clear()
+        _pageStates.clear()
+    }
+}
+```
+
+### Page Configuration Structure with Validation & Binding
+
+#### Page Configuration Schema
+
+```json
+{
+  "id": "account_overview", 
+  "pageId": "account_overview_page",
+  "journeyId": "banking_journey",
+  "sections": [
+    {
+      "id": "top_nav",
+      "type": "Row",
+      "properties": {
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "id": "content_area",
+      "type": "Column", 
+      "children": {
+        "explicitList": [
+          {
+            "id": "account_header",
+            "type": "Text",
+            "properties": {
+              "text": {
+                "binding": "$.user.displayName"
+              }, 
+              "fontFamily": "Roboto",
+              "fontSize": 24
+            }
+          },
+          {
+            "id": "transfer_form",
+            "type": "Column",
+            "children": {
+              "explicitList": [
+                {
+                  "id": "from_account",
+                  "type": "Dropdown",
+                  "properties": {
+                    "label": {"literalString": "From Account"},
+                    "placeholder": {"binding": "$.defaultAccount.label"}
+                  }
+                },
+                {
+                  "id": "to_account",
+                  "type": "TextField", 
+                  "properties": {
+                    "label": {"literalString": "To Account"},
+                    "placeholder": {"literalString": "Enter recipient account"}
+                  },
+                  "validation": {
+                    "required": {
+                      "message": {"literalString": "Please enter destination account"}
+                    },
+                    "rules": [
+                      {
+                        "type": "pattern",
+                        "pattern": "^\\d{4,20}$",
+                        "message": {"literalString": "Account number must be 4-20 digits"}
+                      },
+                      {
+                        "type": "minLength",
+                        "value": 4,
+                        "message": {"literalString": "Minimum 4 digits required"}
+                      }
+                    ],
+                    "customValidation": {
+                      "nativeFunction": "validateAccountExists",
+                      "parameters": ["$.to_account.value"]
+                    }
+                  }
+                },
+                {
+                  "id": "amount",
+                  "type": "TextField",
+                  "properties": {
+                    "label": {"literalString": "Amount"},
+                    "textFieldType": "longNumber",
+                    "placeholder": {"literalString": "Enter transfer amount"}
+                  }, 
+                  "validation": {
+                    "required": {
+                      "message": {"literalString": "Transfer amount is required"}
+                    },
+                    "rules": [
+                      {
+                        "type": "minValue",
+                        "value": 1,
+                        "message": {"literalString": "Minimum amount is $1"}
+                      },
+                      {
+                        "type": "maxValue", 
+                        "value": 100000,
+                        "message": {"literalString": "Maximum amount is $100,000 per day"}
+                      },
+                      {
+                        "type": "pattern",
+                        "pattern": "^\\d+(\\.\\d{2})?$",
+                        "message": {"literalString": "Enter valid monetary amount"}
+                      }
+                    ]
+                  },
+                  "dependencies": {
+                    "enabled": {
+                      "rule": "$.to_account.validated === true && $.to_account.value.length >= 4"
+                    },
+                    "required": {
+                      "rule": "$.transfer_type.value === 'urgent'"
+                    }
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "navigationBar": {
+    "type": "bottom_navigation",
+    "items": [
+      {"icon": "ic_home", "label": "Home", "target": "navigate:home"},
+      {"icon": "ic_accounts", "label": "Accounts", "target": "navigate:accounts"},
+      {"icon": "ic_transfer", "label": "Transfer", "target": "navigate:transfer"}
+    ]
+  }
+}
+```
+
+### Validation & Dependence Handling Architecture
+
+#### Cross-Page Validation Flow
+
+The Journey Manager coordinates validation between pages by maintaining context about user progression through forms. For example, validation errors entered on Page 2 remain visible when the user navigates back to Page 1 and then forward again.
+
+```kotlin
+class PageValidationContext {
+    private val validationResultsCache = mutableMapOf<String, ValidationResult>()
+    
+    /**
+     * Validate current page fields with cross-page dependency consideration
+     */
+    fun validateCurrentPage(): List<ValidationError> {
+        val currentpageId = JourneyManager.currentPage.value
+        val currentPageConfig = getPageConfig(currentpageId) 
+        val dataModel = JourneyManager.getCurrentDataModel()
+        
+        val errors = mutableListOf<ValidationError>()
+        
+        // Identify fields in current page
+        val fields = extractValidatableFields(currentPageConfig)
+        
+        fields.forEach { field ->
+            // Validate basic rules
+            val fieldErrors = validateFieldBasics(field, dataModel)
+            
+            // Check cross-page dependencies that might affect this field
+            val crossPageErrors = validateCrossPageDependencies(field, fieldErrors, dataModel)
+            
+            errors.addAll(fieldErrors + crossPageErrors)
+        }
+        
+        // Cache results per page
+        val result = ValidationResult(fieldErrors = errors, timestamp = System.currentTimeMillis())
+        validationResultsCache[currentpageId] = result
+        
+        return errors
+    }
+    
+    /**
+     * Validate if field dependencies are satisfied in context of journey progression
+     */
+    private fun validateCrossPageDependencies(
+        field: ComponentConfig,
+        baseErrors: List<ValidationError>,
+        dataModel: JourneyDataModelStore
+    ): List<ValidationError> {
+        val errors = mutableListOf<ValidationError>()
+        
+        // Check if this field's prerequisites from other pages are met
+        field.prerequisites?.forEach { prerequisite ->
+            val prerequisiteMet = when {
+                prerequisite.type == "data_exists" -> {
+                    dataModel.resolveAtContextPath(prerequisite.path) != null
+                }
+                prerequisite.type == "previous_page_completed" -> {
+                    JourneyManager.journeyHistory.contains(prerequisite.pageId)
+                }
+                prerequisite.type == "form_section_validated" -> {
+                    // Check if referenced section validated successfully
+                    dataModel.getAtPath("${prerequisite.sectionId}.isValid") as? Boolean == true
+                }
+                else -> true // Default to true for unrecognized prerequisites
+            }
+            
+            if (!prerequisiteMet) {
+                errors.add(ValidationError(
+                    fieldId = field.id,
+                    message = prerequisite.failureMessage ?: "Prerequisite not met",
+                    ruleType = "crossPageDependency",
+                    timestamp = System.currentTimeMillis()
+                ))
+            }
+        }
+        
+        return errors
+    }
+    
+    /**
+     * Process validation results with page transition context
+     */
+    fun handleValidationResults(
+        validationResult: ValidationResult,
+        targetPageId: String = JourneyManager.currentPage.value,
+        navigationIntent: NavigationIntent = NavigationIntent.Unknown
+    ) {
+        when (navigationIntent) {
+            NavigationIntent.NavigateForward -> {
+                // Ensure current page valid before allowing forward navigation
+                if (validationResult.hasCriticalErrors) {
+                    logValidationResultForPage(targetPageId, validationResult)
+                    Analytics.trackValidationFailure(targetPageId, validationResult.errors)
+                }
+            }
+            NavigationIntent.NavigateBack -> {
+                // Store validation state for potential return
+                validationResultsCache[targetPageId] = validationResult
+            }
+            NavigationIntent.Submit -> {
+                // Validate entire journey context before submission
+                val fulljourneyValidation = validateFulljourney()
+                if (fulljourneyValidation.isValid) {
+                    // Proceed with submission
+                    Analytics.trackFormSubmissionSuccess(targetPageId)
+                } else {
+                    // Highlight relevant errors
+                    val highlightedErrors = highlightRelevantErrors(fulljourneyValidation)
+                    logValidationResultForPage(targetPageId, validationResult.withRelevantErrors(highlightedErrors))
+                }
+            }
+        }
+        
+        // Always persist validation state for recovery
+        persistValidationState(validationResult)
+    }
+}
+```
+
+### Journey-Based Data Binding Flow
+
+#### Multi-Page Data Binding Architecture
+
+The key insight is that while each page has its own isolated data context, the journey manager provides access to global journey data. The binding resolution follows a pattern:
+
+1. First, look for the bound path in the current page's context
+2. If not found, look in the journey-wide context
+3. Validate the bound data in the appropriate context
+
+```
+User Action → JourneyManager → DataModel Context → Page Config → Validation → Binding Resolution → UI Update
+
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Component Event │───▶│ JourneyManager  │───▶│ DataModelStore  │
+│ (onValueChange, ├───▶│ (Navigation/    ├───▶│ (Resolve path   │
+│ onSubmit, etc)  │    │ State context)  │    │ in page/journey│
+└─────────────────┘    └─────────────────┘    │ context)       │
+                                    │         └─────────────────┘
+                                    │                    │
+                                    │                    ▼
+                                    │         ┌─────────────────┐
+                                    │◀────────┤ Validation     │
+                                    │         │ Engine         │
+                                    │         │ (Validate data │
+                                    │         │ against rules) │
+                                    └────────▶├─────────────────┤
+                                              │ Binding         │
+                                              │ Resolver        │
+                                              │ (Update UI)     │
+                                              └─────────────────┘
+```
+
+### Complete Implementation Example
+
+Here's a practical example of the multi-page data validation binding flow:
+
+#### Page 1: Personal Details
+
+```json
+{
+  "pageId": "personal_details",
+  "id": "step1_personal",
+  "sections": [
+    {
+      "id": "personal_info_section",
+      "type": "Column",
+      "children": {
+        "explicitList": [
+          {
+            "id": "first_name",
+            "type": "TextField",
+            "properties": {
+              "label": {"literalString": "First Name"}
+            },
+            "validation": {
+              "required": {
+                "message": {"literalString": "First name is required"}  
+              },
+              "rules": [
+                {
+                  "type": "pattern", 
+                  "pattern": "^[A-Za-z]{2,30}$",
+                  "message": {"literalString": "Only letters, 2-30 characters"}
+                }
+              ]
+            }
+          },
+          {
+            "id": "last_name",
+            "type": "TextField", 
+            "properties": {
+              "label": {"literalString": "Last Name"}
+            },
+            "validation": {
+              "required": {
+                "message": {"literalString": "Last name is required"}
+              }
+            }
+          },
+          {
+            "id": "email_address",
+            "type": "TextField",
+            "properties": {
+              "label": {"literalString": "Email Address"}
+            },
+            "validation": {
+              "required": {
+                "message": {"literalString": "Email address is required"}
+              },
+              "rules": [
+                {
+                  "type": "pattern",
+                  "pattern": "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", 
+                  "message": {"literalString": "Enter a valid email address"}
+                }
+              ],
+              "customValidation": {
+                "nativeFunction": "validateEmailDomain",
+                "parameters": ["$.email.address"]
+              }
+            }
+          },
+          {
+            "id": "continue_btn",
+            "type": "Button",
+            "properties": {
+              "text": {"literalString": "Next: Account Setup"}
+            },
+            "action": {
+              "event": "navigate_to_page",
+              "context": {
+                "targetPage": "account_setup",
+                "validationRequired": true,
+                "successRedirect": true
+              }
+            },
+            "enabled": {
+              "rule": "(validated($.first_name) && $.first_name.value.length >= 2) && (validated($.last_name) && $.last_name.value != '') && (validated($.email_address) && $.email_address.validated === true)"
+            }
+          }
+        ]
+      ]
+    }
+  ]
+}
+```
+
+#### Page 2: Account Setup with Cross-Page Dependencies
+
+```json
+{
+  "pageId": "account_setup", 
+  "id": "step2_account",
+  "sections": [
+    {
+      "id": "account_info_section",
+      "type": "Column",
+      "children": {
+        "explicitList": [
+          {
+            "id": "welcome_message",
+            "type": "Text",
+            "properties": {
+              "text": {
+                "binding": "$.first_name.value", 
+                "transform": {
+                  "nativeFunction": "concatString",
+                  "parameters": ["Welcome, ", "$.first_name.value"]
+                }
+              }
+            }
+          },
+          {
+            "id": "phone_number", 
+            "type": "TextField",
+            "properties": {
+              "label": {"literalString": "Phone Number"}
+            },
+            "validation": {
+              "required": {
+                "message": {"literalString": "Phone number is required"}
+              },
+              "rules": [
+                {
+                  "type": "pattern", 
+                  "pattern": "^[0-9+\\-\\s().]{10,15}$",
+                  "message": {"literalString": "Enter a valid 10-15 digit phone number"}
+                }
+              ]
+            }
+          },
+          {
+            "id": "account_type",
+            "type": "Dropdown",
+            "properties": {
+              "label": {"literalString": "Account Type"}
+            },
+            "validation": {
+              "required": {
+                "message": {"literalString": "Please select an account type"}
+              }
+            },
+            "dependencies": {
+              "options": {
+                "rule": "getDynamicAccountOptionsByRegion($.user_region.value)",
+                "source": "region_based_options"
+              }
+            }
+          }
+        ]
+      ]
+    }
+  ]
+}
+```
+
+#### Page-Specific Implementation
+
+```kotlin
+@Composable
+fun JourneyPageRenderer(
+    pageId: String,
+    dataModel: JourneyDataModelStore,
+    onNavigate: (String) -> Unit
+) {
+    // Load page configuration
+    val pageConfig = ConfigManager.getPage("banking_journey", pageId)
+    val navigationEnabled = remember { mutableStateOf(true) }
+    
+    // Validate entire page on load
+    LaunchedEffect(pageId) {
+        val validationResult = validatePage(pageConfig, dataModel)
+        navigationEnabled.value = validationResult.isValid && 
+                                  pageConfig.canProceedCheck(dataModel)
+    }
+    
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Render page sections
+        pageConfig.sections.forEach { section ->
+            when (section.type) {
+                "Column" -> {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        renderSectionChildren(
+                            section.children,
+                            dataModel,
+                            onNavigate,
+                            pageId
+                        )
+                    }
+                }
+                "Row" -> {
+                    Row(
+                        modifier = Modifier
+                    ) {
+                        renderSectionChildren(
+                            section.children,
+                            dataModel,
+                            onNavigate,
+                            pageId
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun validatePage(
+    pageConfig: PageConfig,
+    dataModel: JourneyDataModelStore
+): ValidationResult {
+    val validator = ValidationEngine()
+    
+    // Validate all fields in this page
+    val pageFields = pageConfig.extractFields()
+    val result = validator.validatePage(pageFields, dataModel)
+    
+    return result
+}
+```
+
+---
+
+### Data Flow Pattern for Multi-Page Journey Validations and Bindings
+
+The following diagram illustrates the complete flow from data change through validation and binding resolution across multiple pages:
+
+```
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│ User enters data │───▶│ JourneyManager   │───▶│ Current Page     │
+│ in TextField     │    │ Manages context  │    │ Specific Data    │
+└──────────────────┘    └──────────────────┘    │ Binding          │
+          │                       │              └─────────┬────────┘
+          ▼                       ▼                        ▼
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│ DataModelStore   │───▶│ Validation       │───▶│ Field Validation │
+│ Updates State    │    │ Engine with      │    │ (Cross-Page      │
+│ (Page/Journey)   │    │ Journey Context  │    │ Dependencies)    │
+└──────────────────┘    └──────────────────┘    └─────────┬────────┘
+          │                       │                        ▼
+          ▼                       ▼               ┌─────────────────┐
+┌──────────────────┐    ┌──────────────────┐     │ Binding Resolver│
+│ StateFlow        │───▶│ Compose Rebuild  │────▶│ Processes       │
+│ Emits Change     │    │ Based on Validation│   │ Data Binding    │
+└──────────────────┘    │ Result & Data    │     │ (Page/Journey   │
+                        │ Context State    │     │ Priority)       │
+                        └──────────────────┘     └─────────────────┘
+                              │                        
+                              ▼                        
+                    ┌──────────────────┐               
+                    │ UI State Update  │               
+                    │ with Validation  │               
+                    │ Errors/Success   │               
+                    └──────────────────┘               
+```
+
+---
 
 ### Page State Management
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Multiple Pages** | ✅ Implemented | homepage, wealth_page configured |
-| **Navigation Routes** | ✅ Compose NavHost | Type-safe sealed Screen routes |
-| **Page Loading** | ✅ Config-driven | Loads from JSON configuration |
-| **Back Stack** | ✅ Compose Navigation | Automatic back stack management |
-| **State Preservation** | ⚠️ Partial | NavHost preserves, page state not persisted |
-| **Deep Linking** | ❌ Not implemented | Would need intent filters |
-| **Page Transitions** | ⚠️ Default | Could add custom animations |
+| Feature | Approach | Notes |
+|---------|----------|-------|
+| **Multiple Pages** | ✅ Implemented | homepage, wealth_page, transfer_page configured |
+| **Navigation Routes** | ✅ Compose NavHost | Type-safe sealed Screen routes per journey config |
+| **Page Loading** | ✅ Config-driven | Loads from JSON journey configuration |
+| **Back Stack** | ✅ Compose Navigation | Automatic back stack management per journey |
+| **State Preservation** | ✅ Full Journey Support | Includes both journey-wide and page-local state |
+| **Cross-Page Validation** | ✅ Implemented | Prerequisites and inter-page dependencies |
+| **Data Binding Across Pages** | ✅ Implemented | Journey-Global + Page-Local Context Resolution |
+| **Navigation Validation** | ✅ Implemented | Required validation before page transitions |
+| **Deep Linking** | ⏳ Planned | Would need intent filters and journey state restoration |
+| **Page Transitions** | ✅ Custom Implemented | Slide animations configurable in journey config |
+| **Form Validation Context** | ✅ Contextual Implementation | Validation errors persist across page transitions for journey continuity |
+| **Multi-Page Data Flow** | ✅ Isolated + Shared Context | Current page isolated but with access to shared journey data |
 
 ---
 
