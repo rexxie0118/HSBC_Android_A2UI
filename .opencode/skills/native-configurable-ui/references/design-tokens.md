@@ -1,323 +1,256 @@
-# Design Tokens
+# Design Tokens Guide (With Form Engine Integration)
 
-Design tokens are named variables that store visual design attributes. They replace hardcoded values with meaningful names.
+## Overview
+
+Design tokens represent the smallest unit of design in a system. In the A2UI renderer configuration system, design tokens serve as the atomic building blocks for all visual properties. When working with the NEW Form Engine architecture, all design token usage flows through centralized Form State management.
+
+## Traditional vs Form Engine Approach
+
+### BEFORE (Traditional Distributed Approach):
+```
+Component Renderer 
+├─▶ Reads token directly from Theme config
+├─▶ Converts to Material property manually
+└─▶ Applies directly to UI
+```
+
+### AFTER (Form Engine Centralized Approach):
+```
+Form Engine (Central Authority) 
+├─▶ Evaluates theme expressions and tokens from configuration
+├─▶ Calculates all visual properties and applies to Form State
+├─▶ Component Renderers consume calculated values from Form State
+├─▶ Component Renderers no longer make direct design token calculations
+└─▶ Single authoritative source of visual properties
+```
 
 ## Token Categories
 
-### Colors
+### Color Tokens
+Color tokens define the complete color palette used in the application. The Form Engine manages these through centralized evaluation ensuring consistency. The traditional approach分散ly handled color lookup/resolution. The NEW approach centralizes in Form Engine:
 
-```swift
-// iOS - Assets.xcassets or Swift enum
-enum DesignColors {
-    // Brand colors
-    static let primary = Color("PrimaryColor")
-    static let secondary = Color("SecondaryColor")
-    static let accent = Color("AccentColor")
-    
-    // Semantic colors (auto-resolve light/dark)
-    static let background = Color("BackgroundColor")
-    static let surface = Color("SurfaceColor")
-    static let elevated = Color("ElevatedColor")
-    
-    // Text colors
-    static let textPrimary = Color("TextPrimaryColor")
-    static let textSecondary = Color("TextSecondaryColor")
-    static let textDisabled = Color("TextDisabledColor")
-    
-    // Status colors
-    static let success = Color("SuccessColor")
-    static let warning = Color("WarningColor")
-    static let error = Color("ErrorColor")
-    static let info = Color("InfoColor")
-}
-```
-
-```kotlin
-// Android - colors.xml or Kotlin object
-object DesignColors {
-    // Brand colors
-    val primary = Color(R.color.primary)
-    val secondary = Color(R.color.secondary)
-    val accent = Color(R.color.accent)
-    
-    // Semantic colors
-    val background = Color(R.color.background)
-    val surface = Color(R.color.surface)
-    val elevated = Color(R.color.elevated)
-    
-    // Text colors
-    val textPrimary = Color(R.color.text_primary)
-    val textSecondary = Color(R.color.text_secondary)
-    val textDisabled = Color(R.color.text_disabled)
-    
-    // Status colors
-    val success = Color(R.color.success)
-    val warning = Color(R.color.warning)
-    val error = Color(R.color.error)
-    val info = Color(R.color.info)
-}
-```
-
-### Spacing
-
-Use a consistent scale (4px or 8px base):
-
-```swift
-// iOS
-enum DesignSpacing {
-    static let xs: CGFloat = 4
-    static let sm: CGFloat = 8
-    static let md: CGFloat = 16
-    static let lg: CGFloat = 24
-    static let xl: CGFloat = 32
-    static let xxl: CGFloat = 48
-}
-```
-
-```kotlin
-// Android
-object DesignSpacing {
-    val xs = 4.dp
-    val sm = 8.dp
-    val md = 16.dp
-    val lg = 24.dp
-    val xl = 32.dp
-    val xxl = 48.dp
-}
-```
-
-### Typography
-
-```swift
-// iOS
-enum DesignTypography {
-    struct FontStyle {
-        let font: Font
-        let lineHeight: CGFloat
-        let letterSpacing: CGFloat
-    }
-    
-    // Display
-    static let displayLarge = FontStyle(font: .system(size: 57, weight: .regular), lineHeight: 64, letterSpacing: -0.25)
-    static let displayMedium = FontStyle(font: .system(size: 45, weight: .regular), lineHeight: 52, letterSpacing: 0)
-    
-    // Headlines
-    static let headlineLarge = FontStyle(font: .system(size: 32, weight: .semibold), lineHeight: 40, letterSpacing: 0)
-    static let headlineMedium = FontStyle(font: .system(size: 28, weight: .semibold), lineHeight: 36, letterSpacing: 0)
-    static let headlineSmall = FontStyle(font: .system(size: 24, weight: .semibold), lineHeight: 32, letterSpacing: 0)
-    
-    // Body
-    static let bodyLarge = FontStyle(font: .system(size: 16, weight: .regular), lineHeight: 24, letterSpacing: 0.5)
-    static let bodyMedium = FontStyle(font: .system(size: 14, weight: .regular), lineHeight: 20, letterSpacing: 0.25)
-    static let bodySmall = FontStyle(font: .system(size: 12, weight: .regular), lineHeight: 16, letterSpacing: 0.4)
-    
-    // Labels
-    static let labelLarge = FontStyle(font: .system(size: 14, weight: .medium), lineHeight: 20, letterSpacing: 0.1)
-    static let labelMedium = FontStyle(font: .system(size: 12, weight: .medium), lineHeight: 16, letterSpacing: 0.5)
-    static let labelSmall = FontStyle(font: .system(size: 11, weight: .medium), lineHeight: 16, letterSpacing: 0.5)
-}
-```
-
-```kotlin
-// Android
-object DesignTypography {
-    data class FontStyle(
-        val fontSize: TextUnit,
-        val fontWeight: FontWeight,
-        val lineHeight: TextUnit,
-        val letterSpacing: TextUnit = TextUnit.Unspecified
-    )
-    
-    // Display
-    val displayLarge = FontStyle(57.sp, FontWeight.Normal, 64.sp)
-    val displayMedium = FontStyle(45.sp, FontWeight.Normal, 52.sp)
-    
-    // Headlines
-    val headlineLarge = FontStyle(32.sp, FontWeight.SemiBold, 40.sp)
-    val headlineMedium = FontStyle(28.sp, FontWeight.SemiBold, 36.sp)
-    val headlineSmall = FontStyle(24.sp, FontWeight.SemiBold, 32.sp)
-    
-    // Body
-    val bodyLarge = FontStyle(16.sp, FontWeight.Normal, 24.sp, 0.5.sp)
-    val bodyMedium = FontStyle(14.sp, FontWeight.Normal, 20.sp, 0.25.sp)
-    val bodySmall = FontStyle(12.sp, FontWeight.Normal, 16.sp, 0.4.sp)
-    
-    // Labels
-    val labelLarge = FontStyle(14.sp, FontWeight.Medium, 20.sp, 0.1.sp)
-    val labelMedium = FontStyle(12.sp, FontWeight.Medium, 16.sp, 0.5.sp)
-    val labelSmall = FontStyle(11.sp, FontWeight.Medium, 16.sp, 0.5.sp)
-}
-```
-
-### Corner Radius
-
-```swift
-enum DesignCornerRadius {
-    static let none: CGFloat = 0
-    static let small: CGFloat = 4
-    static let medium: CGFloat = 8
-    static let large: CGFloat = 12
-    static let xl: CGFloat = 16
-    static let xxl: CGFloat = 24
-    static let full: CGFloat = 9999  // Circular
-}
-```
-
-```kotlin
-object DesignCornerRadius {
-    val none = 0.dp
-    val small = 4.dp
-    val medium = 8.dp
-    val large = 12.dp
-    val xl = 16.dp
-    val xxl = 24.dp
-    val full = 9999.dp  // Circular
-}
-```
-
-### Shadows / Elevation
-
-```swift
-// iOS - Shadows
-enum DesignShadows {
-    struct ShadowConfig {
-        let color: Color
-        let offset: CGSize
-        let radius: CGFloat
-        let opacity: Float
-    }
-    
-    static let none = ShadowConfig(color: .clear, offset: .zero, radius: 0, opacity: 0)
-    static let small = ShadowConfig(color: .black, offset: CGSize(width: 0, height: 2), radius: 4, opacity: 0.05)
-    static let medium = ShadowConfig(color: .black, offset: CGSize(width: 0, height: 4), radius: 8, opacity: 0.1)
-    static let large = ShadowConfig(color: .black, offset: CGSize(width: 0, height: 8), radius: 16, opacity: 0.15)
-    static let xl = ShadowConfig(color: .black, offset: CGSize(width: 0, height: 16), radius: 32, opacity: 0.2)
-}
-```
-
-```kotlin
-// Android - Elevation
-object DesignElevation {
-    val none = 0.dp
-    val small = 2.dp
-    val medium = 4.dp
-    val large = 8.dp
-    val xl = 16.dp
-    val xxl = 24.dp
-}
-```
-
-## Configuration File Format
-
-Define tokens in a shared JSON format for cross-platform consistency:
-
+#### Standard Color Tokens (Now managed by Form Engine)
 ```json
 {
-  "colors": {
-    "primary": { "light": "#007AFF", "dark": "#0A84FF" },
-    "background": { "light": "#FFFFFF", "dark": "#000000" },
-    "surface": { "light": "#F2F2F7", "dark": "#1C1C1E" }
-  },
-  "spacing": {
-    "unit": "dp",
-    "base": 4,
-    "scale": { "xs": 1, "sm": 2, "md": 4, "lg": 6, "xl": 8, "xxl": 12 }
-  },
-  "typography": {
-    "fontFamily": "SF Pro Text",
-    "sizes": {
-      "displayLarge": { "size": 57, "weight": "regular", "lineHeight": 64 }
+  "palette": {
+    "primary": {
+      "50": "#ffebee",
+      "100": "#ffcdd2",
+      "200": "#ef9a9a", 
+      "300": "#e57373",
+      "400": "#ef5350",
+      "500": "#f44336",   // ← PRIMARY BRAND RED
+      "600": "#e53935",   // ← DARKER VERSION
+      "700": "#d32f2f",   // ← EVEN DARKER
+      "800": "#c62828",   // ← DARKEST
+      "900": "#b71c1c"
+    },
+    "secondary": {
+      "500": "#9c27b0",
+      "700": "#7b1fa2"
     }
-  },
-  "cornerRadius": {
-    "unit": "dp",
-    "values": { "none": 0, "small": 4, "medium": 8, "large": 12 }
   }
 }
 ```
 
-## Usage in Components
+In the NEW Form Engine approach:
+- The Form Engine reads color tokens from theme configuration
+- Component rendering now uses Form State which has already processed theme tokens
+- Form Engine calculates the final color value to apply based on theme selection
 
-```swift
-// iOS - Using tokens in a card component
-struct ConfigurableCard: View {
-    let config: CardConfig
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignSpacing.sm) {
-            Image(config.icon)
-                .resizable()
-                .frame(width: 40, height: 40)
-            
-            Text(config.title)
-                .font(DesignTypography.headlineSmall.font)
-                .foregroundColor(DesignColors.textPrimary)
-            
-            Text(config.subtitle)
-                .font(DesignTypography.bodyMedium.font)
-                .foregroundColor(DesignColors.textSecondary)
-        }
-        .padding(DesignSpacing.md)
-        .background(DesignColors.surface)
-        .cornerRadius(DesignCornerRadius.medium)
-        .shadow(color: DesignShadows.medium.color,
-                radius: DesignShadows.medium.radius,
-                x: DesignShadows.medium.offset.width,
-                y: DesignShadows.medium.offset.height)
-    }
+#### Semantic Color Tokens (With Form Engine Processing)
+Instead of scattered color selection, the Form Engine processes semantic meanings:
+
+```json
+{
+  "colors": {
+    "background": "{palette.primary.50}",     // ← Now resolved by Form Engine
+    "surface": "{palette.primary.100}",       // ← Now resolved by Form Engine  
+    "onSurface": "{palette.primary.900}",     // ← Now resolved by Form Engine
+    "error": "{palette.secondary.500}",       // ← Now resolved by Form Engine
+    "primary": "{palette.primary.700}",       // ← Now resolved by Form Engine 
+    "primaryContainer": "{palette.primary.200}" // ← Now resolved by Form Engine
+  }
 }
 ```
 
-```kotlin
-// Android - Using tokens in a card component
-@Composable
-fun ConfigurableCard(
-    config: CardConfig,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .background(
-                color = DesignColors.surface,
-                shape = RoundedCornerShape(DesignCornerRadius.medium)
-            )
-            .shadow(
-                elevation = DesignElevation.medium,
-                shape = RoundedCornerShape(DesignCornerRadius.medium)
-            )
-            .padding(DesignSpacing.md),
-        verticalArrangement = Arrangement.spacedBy(DesignSpacing.sm)
-    ) {
-        Icon(
-            painter = painterResource(config.icon),
-            contentDescription = null,
-            modifier = Modifier.size(40.dp),
-            tint = DesignColors.primary
-        )
-        
-        Text(
-            text = config.title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = DesignColors.textPrimary
-        )
-        
-        Text(
-            text = config.subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = DesignColors.textSecondary
-        )
-    }
+With NEW Form Engine Flow:
+1. ConfigManager reads semantic color definitions
+2. Form Engine calculates actual color values based on palette references
+3. Component renderers get resolved colors from Form Engine state flow
+4. Component no longer resolves design tokens directly
+
+### Spacing Tokens 
+Spacing tokens define the unit-based spacing system. NEW Form Engine manages spacing resolution:
+
+#### Spacing Scale (Now with Form Engine Management)
+```json
+{
+  "spacing": {
+    "xs": "4dp",
+    "sm": "8dp", 
+    "md": "16dp",
+    "lg": "24dp",
+    "xl": "32dp",
+    "xxl": "40dp"
+  }
 }
 ```
 
-## Token Generation Scripts
+NEW Workflow:
+- Form Engine reads spacing tokens at initialization
+- Components get final spacing values from central Form State rather than token calculation
 
-Generate platform-specific token files from a single JSON source:
+### Typography Tokens
+Typography tokens define text hierarchy. The NEW Form Engine processes these:
 
-```bash
-# Generate iOS tokens
-./scripts/generate-tokens --input tokens.json --platform ios --output DesignTokens.swift
-
-# Generate Android tokens
-./scripts/generate-tokens --input tokens.json --platform android --output DesignTokens.kt
+#### Material 3 Typography Definitions (Form Engine-Processed)
+```json
+{
+  "typography": {
+    "displayLarge": {
+      "fontFamily": "Roboto",
+      "fontWeight": 300,
+      "fontSize": 57,
+      "letterSpacing": -0.25,
+      "lineHeight": 64
+    },
+    "displayMedium": {
+      "fontFamily": "Roboto", 
+      "fontWeight": 300,
+      "fontSize": 45,
+      "letterSpacing": 0,
+      "lineHeight": 52
+    },
+    "headlineLarge": {
+      "fontFamily": "Roboto",
+      "fontWeight": 400,
+      "fontSize": 32,
+      "letterSpacing": 0,
+      "lineHeight": 40
+    }
+  }
+}
 ```
+
+Form Engine Process:
+- Theme configuration loaded, typographic tokens evaluated by centralized engine
+- Form State contains processed typography ready for component consumption
+- Components access final typography from Form Engine state (no direct token lookup)
+
+## Usage in Configuration
+### Component Configuration with NEW Form Engine Processing
+
+In the NEW approach with Form Engine, components reference design tokens but the Form Engine does the resolving:
+
+```json
+{
+  "id": "button_primary_action",
+  "type": "Button",
+  "properties": {
+    "text": {"literalString": "Submit Form"},
+    "background-color": "semantic:primary",        // ← Form Engine resolves this
+    "text-color": "semantic:onPrimary",           // ← Form Engine resolves this  
+    "padding": "spacing:md"                        // ← Form Engine resolves this
+  }
+}
+```
+
+The NEW Form Engine workflow:
+1. Component configuration specifies semantic color usage in background-color, etc.
+2. Form Engine processes this configuration and resolves color tokens
+3. Component renderer accesses final resolved values from Form Engine state
+4. Component uses resolved values without needing token resolution logic
+
+## Conversion to Native Properties
+
+In the traditional approach, renderers individually converted tokens to native properties. With Form Engine:
+- Form Engine performs centralized token-todynamic-property resolution
+- Component renderers receive fully-processed values from Form State
+- Single consistent resolution across all components
+
+### For iOS Components
+- UIColor creation from resolved hex values
+- UIFont creation from resolved typography tokens  
+- CGVector from spacing token resolution
+- Form Engine manages these conversions
+
+iOS Conversion via Form Engine:
+```
+Form Engine processes "semantic:primary" → resolves to #color_hex → stores in Form State 
+→ iOS component renderer reads processed UIColor from Form Engine state
+```
+
+### For Android Components  
+- Color creation from resolved hex values (`android.graphics.Color`)
+- Typography from resolved font specifications (`androidx.compose.ui.text.TextStyle`)
+- Spacing from resolved dp values (`androidx.compose.ui.unit.Dp`)
+- All centralized in Form Engine processing
+
+Android Conversion via Form Engine:
+```
+Form Engine processes "spacing:md" → resolves to Dp value → stores in Form State
+→ Android component renderer reads processed Dp from Form Engine state
+```
+
+## Best Practices with NEW Form Engine Approach
+
+### 1. Follow Atomic Design with Semantic Naming  
+- Use semantic names that don't change with design updates (e.g., `semantic:primary` vs `HSBC-red`)
+- The Form Engine maps semantic tokens to actual values
+- Centralized token changes apply consistently through Form Engine
+
+### 2. Prefer Semantic Over Literal
+- Reference semantic tokens (`semantic:primaryContainer`) not literal values (`#f8bbd0`)  
+- Form Engine handles translation and can manage consistency
+- Design changes can be updated in one place in Form Engine
+
+### 3. Maintain Token Specificity  
+- Use specific tokens appropriate to context (`semantic:error` for error state icons)
+- Leverage Form Engine's centralized state to ensure context-appropriate values
+- Avoid reusing tokens for inappropriate contexts
+
+### 4. Namespace Appropriately
+- Prefix tokens properly (`semantic:primary`, `spacing:md`) so Form Engine can process correctly
+- Maintain consistent token hierarchy across configurations read by Form Engine
+
+## Migration to Form Engine  
+
+When transitioning existing configurations to work with NEW Form Engine:
+
+### 1. Review Token References
+Check all `.color` and `.spacing` references in configuration and verify Form Engine can resolve them
+
+### 2. Update Property Mappings
+Ensure component properties reference tokens with proper format for Form Engine resolution
+
+### 3. Update Component Renderers
+Remove direct token resolution from component renderers (Form Engine does this)
+
+### 4. Test Token Consistency
+Verify that Form Engine resolves tokens consistently across all components
+
+## Troubleshooting NEW Form Engine Token Issues
+
+### Token Not Resolving
+- Verify token exists in theme configurations loaded by Form Engine
+- Check spelling matches Form Engine token dictionary
+- Ensure configuration uses correct format for Form Engine processing
+
+### Wrong Value Resolved
+- Check semantic meaning in Form Engine context  
+- Verify semantic token resolves to correct base token
+- Review Form Engine's token resolution logic for this reference type
+
+### Performance Issues
+- Confirm Form Engine caching is optimized for frequently used tokens
+- Verify resolved tokens are cached for reuse across component instances
+
+## Key Takeaways with NEW Form Engine Integration
+
+1. **Centralized Resolution**: The Form Engine performs all design token resolution instead of scattered component logic
+2. **Single Authority**: Component renderers consume from Form Engine instead of independently processing tokens  
+3. **Consistent Results**: All components receive same resolved values for tokens via Form Engine
+4. **Easier Maintenance**: Changes to token definitions automatically propagate through Form Engine
+
+The NEW Form Engine approach significantly reduces component complexity while ensuring consistent design token usage throughout the application.

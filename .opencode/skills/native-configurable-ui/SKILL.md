@@ -58,6 +58,14 @@ This skill encompasses the expertise for building native iOS and Android compone
 - Memory-conscious rendering with proper caching
 - Lazy evaluation and progressive rendering strategies via Form Engine
 
+### 10. Centralized Form Orchestration 
+- Single source of truth provided by Form Engine
+- Deterministic evaluation order based on dependency graphs
+- Centralized validation through Form Engine Validation Engine
+- Unified state management via Form Engine orchestration
+- Centralized error handling and user feedback
+- Consistent data modeling and binding resolution
+
 ## Technical Proficiencies
 
 ### Android Implementation
@@ -74,7 +82,7 @@ This skill encompasses the expertise for building native iOS and Android compone
 - Centralized Form Engine patterns on iOS
 - Performance optimization techniques
 
-### Form Engine System (NEW)
+### Form Engine System (Centrally Orchestrated)
 - **Single Source of Truth**: FormEngine manages all form state in centralized FormState with StateFlow for reactive updates
 - **Deterministic Evaluation**: Centralized evaluation with explicit dependency graph defining order, using namespaced evaluation (validation, visibility, binding, etc.) with centralized caching
 - **Incremental Re-Evaluation**: Dependency-tracking based re-evaluation instead of full form re-render, with transitive dependency evaluation
@@ -96,38 +104,84 @@ This skill encompasses the expertise for building native iOS and Android compone
 - Extensible component registries
 
 ### Dynamic UI Generation Techniques
-- Template-based list generation patterns
-- Recursive component tree construction
-- Configuration schema validation
-- Runtime behavior modification
+- Template-based list generation patterns with Form Engine state
+- Recursive component tree construction coordinated by Form Engine
+- Configuration schema validation with Form Engine enforcement
+- Runtime behavior modification through Form Engine orchestration
 
 ### State Management Approaches  
-- Reactive state propagation via Form Engine
-- Derivation and caching patterns
-- Change detection and update efficiency
-- Cross-component state synchronization
+- Reactive state propagation via Form Engine orchestration
+- Derivation and caching patterns managed by Form Engine
+- Change detection and update efficiency coordinated by Form Engine
+- Cross-component state synchronization through unified Form Engine state
+
+### Cross-Page Journey State Management
+- Multi-page state coordination through Form Engine
+- Cross-page validation and dependency resolution via Form Engine
+- Page transition state preservation using Form Engine
+- Navigation decision logic centralized in Form Engine
 
 ### Security Implementation Practices
-- Component whitelisting at configuration load time
-- Expression isolation with sandboxed execution environments
-- Input sanitization and validation
-- Network request minimization strategies
+- Component whitelisting through Form Engine configuration loading
+- Expression isolation with Form Engine sandboxed evaluation
+- Input sanitization at Form Engine boundary
+- Network request minimization with Form Engine managed local-first approach
 
 ### Performance Optimization Strategies  
-- Component rendering optimization via Form Engine
-- State update batching through centralized engine
-- Caching strategies for heavy computations
-- Efficient list rendering with proper recycling
+- Component rendering optimization via Form Engine managed state
+- State update batching through centralized Form Engine dispatcher
+- Caching strategies for heavy computations through Form Engine centralized caching
+- Efficient list rendering with proper state management via Form Engine
+
+## Integration Patterns
+
+### Legacy System Migration to Form Engine
+- Gradual migration from distributed state to Form Engine central orchestration
+- Form Engine state bridging for existing components
+- Component Renderer adaptation to Form Engine state flows
+- Validation Engine integration with Form Engine orchestration
+
+### Cross-Platform Data Consistency
+- Unified Form Engine ensuring consistent behavior
+- Platform-appropriate presentation layer with shared logic
+- Data binding consistency through Form Engine normalization
+- UX pattern consistency despite platform differences
+
+### Configuration-Driven Behavior
+- Declarative form logic with Form Engine orchestration
+- Dynamic validation rules processed by Form Engine Validation Engine
+- Data binding and transformation through Form Engine Expression Evaluator
+- Dependency resolution handled by Form Engine Dependency Manager
+
+## Quality Assurance with Form Engine
+
+### Consistent Validation Experiences
+- Unified validation error state through Form Engine
+- Cross-field validation rules enforced by Form Engine
+- Consistent validation timing and performance via Form Engine orchestration
+- Centralized error reporting and user guidance
+
+### Predictable User Experiences
+- Deterministic evaluation order through Form Engine dependency graph
+- Consistent state transitions across all journey points
+- Reliable cross-page and cross-component behaviors managed by Form Engine
+- Performance stability through Engine-controlled updates
+
+### System Integration
+- Form Engine state as single authority for form behaviors
+- Component Renderer consuming from unified Form State
+- Validation and binding evaluation coordinated by Form Engine
+- Navigation logic centralized in Form Engine Action Dispatcher
 
 ## References
-- [Design Tokens Guide](./design-tokens.md) - Design token system documentation
-- [Validation & Dependency Guide](./validation-dependencies.md)  - Validation engine and dependency resolution 
-- [Security Policies Guide](./security-policies.md) - Security implementation patterns
-- [Performance Strategies Guide](./performance-strategies.md) - Rendering optimization techniques  
-- [Form Engine Architecture Guide](./form-engine-architecture.md) - New centralized form engine approach
+- [Design Tokens Guide](./design-tokens.md) - Design token system documentation integrated with Form Engine
+- [Validation & Dependency Guide](./validation-dependencies.md)  - Form Engine-enhanced validation and dependency resolution 
+- [Security Policies Guide](./security-policies.md) - Form Engine-integrated security implementation patterns
+- [Performance Strategies Guide](./performance-strategies.md) - Form Engine-optimized rendering techniques  
+- [Form Engine Architecture Guide](./form-engine-architecture.md) - Centralized form engine approach implementation
 
 ## Learning Resources
-- Study of existing configuration-driven UI systems
-- Understanding of reactive programming principles
-- Knowledge of native platform component systems
-- Form design pattern research and best practices
+- Study of existing configuration-driven UI systems with central orchestration
+- Understanding of reactive programming principles with centralized state management
+- Knowledge of native platform component systems and Form Engine integration
+- Form design and orchestration pattern best practices with Engine patterns
