@@ -61,7 +61,6 @@ Thumbs.db
 backups/
 
 # Screenshot and image files (development artifacts)
-*.png
 *.jpg
 *.jpeg
 *.gif
